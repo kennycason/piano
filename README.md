@@ -31,8 +31,9 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 - Simultaneous score-note highlighting across staves plus live playback lighting on the piano keys
 - Undo/redo and keyboard shortcuts
 - Multiple locally saved songs with JSON import/export
+- Five bundled, editable sample scores for learning and exploring the editor
 
-Songs and the selected playback sound are stored in browser `localStorage`. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; the three synthesized sounds do not require sample downloads.
+Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; the three synthesized sounds do not require sample downloads.
 
 ## Run locally
 
@@ -42,6 +43,16 @@ npm run dev
 ```
 
 Vite prints the local URL, usually `http://localhost:5173`.
+
+## Production deployment
+
+The production build is configured for the `/piano/` URL path. Build the app, then copy the contents of `dist/` into the server's `piano/` directory:
+
+```bash
+npm run build
+```
+
+The resulting entry point is `/piano/index.html`, with its JavaScript, CSS, and public assets loaded from `/piano/`.
 
 ## Quality checks
 

@@ -1,6 +1,6 @@
 # Song fixtures
 
-These scores can be imported from the song-library sidebar. Importing a JSON file creates a new browser-local project; the checked-in file remains an unchanged reference fixture.
+These scores can be imported from the song-library sidebar. Importing a JSON file creates a new browser-local project; the checked-in file remains an unchanged reference fixture. Five fixtures—Alouette, The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet—are also installed automatically as editable starter projects on the app's first run.
 
 ## Practice library
 

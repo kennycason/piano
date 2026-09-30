@@ -27,6 +27,7 @@ import {
 } from './models/song';
 import {
   loadSongs,
+  initializeSongLibrary,
   saveSong,
   deleteSong as deleteStoredSong,
   setCurrentSongId,
@@ -118,7 +119,7 @@ function normalizePianoKeys(keys: string[]): {
 }
 
 function createInitialLibrary(): { songs: Song[]; currentSong: Song } {
-  const savedSongs = loadSongs();
+  const savedSongs = initializeSongLibrary();
   const savedId = getCurrentSongId();
   const currentSong = savedSongs.find((song) => song.id === savedId) ?? savedSongs[0];
   if (currentSong) return { songs: savedSongs, currentSong };

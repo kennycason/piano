@@ -1,8 +1,22 @@
 import type { Song } from '../models/song';
+import alouetteBeginner from '../../songs/alouette-beginner.json';
+import marinesHymnBeginner from '../../songs/marines-hymn-beginner.json';
+import orbitingRuins from '../../songs/orbiting-ruins.json';
+import pixelParade from '../../songs/pixel-parade.json';
+import teacherDuetSingleBassStaff from '../../songs/teacher-duet-single-bass-staff.json';
 
 const STORAGE_KEY = 'piano_sheet_songs';
 const CURRENT_SONG_KEY = 'piano_sheet_current';
+const SAMPLE_LIBRARY_VERSION_KEY = 'piano_sheet_sample_library_version';
+const SAMPLE_LIBRARY_VERSION = '1';
 const NOTE_DURATIONS = new Set(['w', 'h', 'q', '8', '16']);
+const BUNDLED_SAMPLE_CANDIDATES: unknown[] = [
+  alouetteBeginner,
+  marinesHymnBeginner,
+  orbitingRuins,
+  pixelParade,
+  teacherDuetSingleBassStaff,
+];
 
 function isNoteEntry(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
@@ -104,6 +118,39 @@ export function loadSongs(): Song[] {
     return Array.isArray(parsed) ? parsed.filter(isSong) : [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Adds each bundled sample once without replacing local edits. Matching titles
+ * also prevent duplicates for people who imported a fixture before it became
+ * part of the starter library. Bumping the version lets a future release add
+ * more samples while preserving anything the user has created or deleted.
+ */
+export function initializeSongLibrary(): Song[] {
+  const songs = loadSongs();
+
+  try {
+    if (localStorage.getItem(SAMPLE_LIBRARY_VERSION_KEY) === SAMPLE_LIBRARY_VERSION) {
+      return songs;
+    }
+
+    const existingIds = new Set(songs.map((song) => song.id));
+    const existingTitles = new Set(songs.map((song) => song.title.trim().toLocaleLowerCase()));
+    const samples = BUNDLED_SAMPLE_CANDIDATES.filter(isSong);
+    const missingSamples = samples.filter((sample) => (
+      !existingIds.has(sample.id) &&
+      !existingTitles.has(sample.title.trim().toLocaleLowerCase())
+    ));
+    const initializedSongs = missingSamples.length > 0
+      ? [...songs, ...missingSamples]
+      : songs;
+
+    if (missingSamples.length > 0) saveSongs(initializedSongs);
+    localStorage.setItem(SAMPLE_LIBRARY_VERSION_KEY, SAMPLE_LIBRARY_VERSION);
+    return initializedSongs;
+  } catch {
+    return songs;
   }
 }
 
