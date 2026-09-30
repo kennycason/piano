@@ -1,5 +1,7 @@
 import React from 'react';
+import { KEY_SIGNATURES } from '../../models/song';
 import type { NoteDuration, Accidental, Dynamic, Articulation, NoteEntry } from '../../models/song';
+import type { NoteNameMode } from '../../services/renderer';
 import {
   WholeNote,
   HalfNote,
@@ -48,6 +50,14 @@ interface ToolbarProps {
   selectedNote: NoteEntry | null;
   selectedChordToneIndex: number;
   onSelectedChordToneIndexChange: (index: number) => void;
+  noteNameMode: NoteNameMode;
+  onNoteNameModeChange: (mode: Exclude<NoteNameMode, 'off'>) => void;
+  tempo: number;
+  timeSignature: [number, number];
+  keySignature: string;
+  onTempoChange: (tempo: number) => void;
+  onTimeSignatureChange: (timeSignature: [number, number]) => void;
+  onKeySignatureChange: (keySignature: string) => void;
 }
 
 const durationIcons: Record<NoteDuration, React.FC> = {
@@ -130,7 +140,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   selectedNote,
   selectedChordToneIndex,
   onSelectedChordToneIndexChange,
+  noteNameMode,
+  onNoteNameModeChange,
+  tempo,
+  timeSignature,
+  keySignature,
+  onTempoChange,
+  onTimeSignatureChange,
+  onKeySignatureChange,
 }) => {
+  const currentMeter = `${timeSignature[0]}/${timeSignature[1]}`;
+  const timeSignatureOptions = ['2/4', '3/4', '4/4', '6/8', '9/8', '12/8'];
   const hasAccidental = (a: Accidental) => (
     selectedNote?.accidentals?.[selectedChordToneIndex] === a
   );
@@ -363,6 +383,91 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               Del Note
             </button>
           </Tip>
+        </div>
+      </div>
+
+      {/* Score and view settings */}
+      <div className="toolbar-section toolbar-settings-section">
+        <span className="toolbar-label">Sheet</span>
+        <div className="toolbar-group toolbar-settings-group">
+          <div className="note-names-controls" role="group" aria-label="Note-name display">
+            <button
+              type="button"
+              className={`note-names-toggle ${noteNameMode === 'inside' ? 'active' : ''}`}
+              onClick={() => onNoteNameModeChange('inside')}
+              title="Show note letters inside noteheads"
+              aria-label="Show note names inside noteheads"
+              aria-pressed={noteNameMode === 'inside'}
+            >
+              ABC
+            </button>
+            <button
+              type="button"
+              className={`note-names-toggle note-names-below ${noteNameMode === 'below' ? 'active' : ''}`}
+              onClick={() => onNoteNameModeChange('below')}
+              title="Show note or chord letters below the notes"
+              aria-label="Show note names below notes"
+              aria-pressed={noteNameMode === 'below'}
+            >
+              ABC↓
+            </button>
+          </div>
+          <label className="sheet-setting-label">
+            Meter
+            <select
+              className="time-signature-select"
+              value={currentMeter}
+              onChange={(event) => {
+                const [beats, beatValue] = event.target.value.split('/').map(Number);
+                onTimeSignatureChange([beats, beatValue]);
+              }}
+              aria-label="Time signature"
+            >
+              {!timeSignatureOptions.includes(currentMeter) && (
+                <option value={currentMeter}>{currentMeter}</option>
+              )}
+              {timeSignatureOptions.map((meter) => (
+                <option key={meter} value={meter}>{meter}</option>
+              ))}
+            </select>
+          </label>
+          <label className="sheet-setting-label">
+            Key
+            <select
+              className="key-signature-select"
+              value={keySignature}
+              onChange={(event) => onKeySignatureChange(event.target.value)}
+              aria-label="Key signature"
+            >
+              {KEY_SIGNATURES.map((key) => (
+                <option key={key} value={key}>{key}</option>
+              ))}
+            </select>
+          </label>
+          <label className="sheet-setting-label tempo-setting-label">
+            <span aria-hidden="true">♩ =</span>
+            <input
+              key={`tempo-${tempo}`}
+              type="number"
+              className="tempo-input"
+              defaultValue={tempo}
+              onBlur={(event) => {
+                const parsedTempo = Number(event.target.value);
+                const nextTempo = Number.isFinite(parsedTempo)
+                  ? Math.max(20, Math.min(300, Math.round(parsedTempo)))
+                  : tempo;
+                event.target.value = String(nextTempo);
+                if (nextTempo !== tempo) onTempoChange(nextTempo);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+              min={20}
+              max={300}
+              aria-label="Tempo in beats per minute"
+            />
+            BPM
+          </label>
         </div>
       </div>
     </div>

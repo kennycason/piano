@@ -1,6 +1,6 @@
 # Song fixtures
 
-These scores can be imported from the song-library sidebar. Importing a JSON file creates a new browser-local project; the checked-in file remains an unchanged reference fixture. Six fixtures—Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet—are also installed automatically as editable starter projects on the app's first run.
+These scores can be imported from the song-library sidebar. Importing a JSON file creates a new browser-local project; the checked-in file remains an unchanged reference fixture. Eight fixtures—Lower Norfair, Moonlight Sonata, Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet—are also installed automatically as editable starter projects. Lower Norfair is the first-run default for new visitors.
 
 ## Practice library
 
@@ -12,6 +12,9 @@ These scores can be imported from the song-library sidebar. Importing a JSON fil
 - `alouette-beginner.json` — beginner two-hand arrangement of the traditional public-domain French-Canadian melody.
 - `marines-hymn-beginner.json` — beginner two-hand arrangement of the public-domain Marines’ Hymn, transposed to C major.
 - `marines-hymn.json` — complete three-phrase arrangement in the traditional E-flat major and 2/4 march setting, with alternating bass and chord accompaniment.
+- `moonlight-sonata.json` — simplified eight-bar opening stored in the current multitrack project schema, using C-sharp minor's four-sharp key signature.
+- `lower-norfair.mid` — distributable source MIDI used to exercise multitrack conversion.
+- `lower-norfair.json` — generated four-track project with Strings, Drums, Ahhs, and Lead scores, MIDI metadata, and instrument presets.
 
 `Pixel Parade`, `Orbiting Ruins`, and `Midnight Mouse` are original fixtures. They provide the requested game-like and spooky learning moods without reproducing the melodies of copyrighted compositions. `Alouette` follows a CC0/public-domain melody source, and `The Marines’ Hymn` is based on its public-domain melody.
 
@@ -22,4 +25,4 @@ These scores can be imported from the song-library sidebar. Importing a JSON fil
 
 The source excerpt does not show a title or tempo, so the fixture uses the descriptive title “Teacher Duet” and an editorial tempo of 88 BPM. The transcription is from the supplied photo and is intentionally kept as JSON so individual pitches can be corrected easily if a clearer source becomes available.
 
-The shared-staff fixture also exercises the optional song fields `staffLayout`, `staffClefs`, `voiceLabels`, `additionalBassVoices`, and explicit `slurPlacement` values.
+The shared-staff fixture also exercises track-level `staffLayout`, `staffClefs`, `voiceLabels`, `additionalBassVoices`, and explicit `slurPlacement` values.

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { PlaybackBar } from './components/PlaybackBar/PlaybackBar';
 import { SongManager } from './components/SongManager/SongManager';
 import { NoteInput } from './components/ScoreEditor/NoteInput';
 import type {
   Song,
+  EditableScore,
   NoteEntry,
   NoteDuration,
   Accidental,
@@ -14,9 +15,12 @@ import type {
   Measure,
 } from './models/song';
 import {
+  GENERAL_MIDI_DRUM_NAMES,
   createDefaultSong,
   createDefaultMeasure,
+  createEditableScore,
   createId,
+  drumMidiToStaffKey,
   getMeasureBeatCount,
   getMeasureCapacity,
   getNoteBeatValue,
@@ -27,6 +31,8 @@ import {
   getMeasureNoteIds,
   getKeySignatureAccidental,
   notesHaveSamePitches,
+  pianoKeyToMidi,
+  replaceSongTrackFromScore,
 } from './models/song';
 import {
   loadSongs,
@@ -37,10 +43,10 @@ import {
   getCurrentSongId,
   exportSongToJson,
   importSongFromJson,
+  DEFAULT_STARTER_SONG_ID,
 } from './services/storage';
-import { renderSong, type RenderResult } from './services/renderer';
+import { renderSong, type NoteNameMode, type RenderResult } from './services/renderer';
 import {
-  DEFAULT_SYNTH_CONTROLS,
   playbackEngine,
   type InstrumentSound,
   type SynthControls,
@@ -50,8 +56,7 @@ import './App.css';
 
 const MAX_HISTORY = 50;
 const PITCH_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
-const INSTRUMENT_STORAGE_KEY = 'piano_sheet_instrument';
-const SYNTH_CONTROLS_STORAGE_KEY = 'piano_sheet_synth_controls';
+const NOTE_NAMES_STORAGE_KEY = 'piano_sheet_show_note_names';
 type PlayState = 'stopped' | 'loading' | 'playing' | 'paused';
 type SaveStatus = 'saved' | 'saving' | 'error';
 interface NoteLocation {
@@ -85,6 +90,7 @@ function copyNoteData(note: NoteEntry): NoteEntry {
   return {
     ...note,
     keys: [...note.keys],
+    drumMidi: note.drumMidi ? [...note.drumMidi] : undefined,
     accidentals: note.accidentals ? [...note.accidentals] : undefined,
     articulations: note.articulations ? [...note.articulations] : undefined,
   };
@@ -124,6 +130,7 @@ function cloneMeasureForPaste(measure: Measure): Measure {
 }
 
 function transposeNoteBySteps(note: NoteEntry, steps: number): NoteEntry {
+  if (note.drumMidi) return note;
   if (note.isRest) {
     const restOffset = Math.max(-6, Math.min(6, (note.restOffset ?? 0) + steps * 0.5));
     return { ...note, restOffset: restOffset || undefined };
@@ -179,42 +186,22 @@ function normalizePianoKeys(keys: string[], keySignature: string): {
 function createInitialLibrary(): { songs: Song[]; currentSong: Song } {
   const savedSongs = initializeSongLibrary();
   const savedId = getCurrentSongId();
-  const currentSong = savedSongs.find((song) => song.id === savedId) ?? savedSongs[0];
+  const currentSong = savedSongs.find((song) => song.id === savedId)
+    ?? savedSongs.find((song) => song.id === DEFAULT_STARTER_SONG_ID)
+    ?? savedSongs[0];
   if (currentSong) return { songs: savedSongs, currentSong };
 
   const newSong = createDefaultSong();
   return { songs: [newSong], currentSong: newSong };
 }
 
-function getInitialInstrument(): InstrumentSound {
+function getInitialNoteNameMode(): NoteNameMode {
   try {
-    const saved = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
-    return saved === 'electric-keys' || saved === 'warm-pad' || saved === 'music-box'
-      ? saved
-      : 'grand-piano';
+    const saved = localStorage.getItem(NOTE_NAMES_STORAGE_KEY);
+    if (saved === 'inside' || saved === 'below') return saved;
+    return saved === 'true' ? 'inside' : 'off';
   } catch {
-    return 'grand-piano';
-  }
-}
-
-function getInitialSynthControls(): SynthControls {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SYNTH_CONTROLS_STORAGE_KEY) ?? 'null') as Partial<SynthControls> | null;
-    if (!parsed) return { ...DEFAULT_SYNTH_CONTROLS };
-    const getControl = (key: keyof SynthControls) => {
-      const value = parsed[key];
-      return typeof value === 'number' && Number.isFinite(value)
-        ? Math.max(0, Math.min(1, value))
-        : DEFAULT_SYNTH_CONTROLS[key];
-    };
-    return {
-      volume: getControl('volume'),
-      tone: getControl('tone'),
-      echo: getControl('echo'),
-      sustain: getControl('sustain'),
-    };
-  } catch {
-    return { ...DEFAULT_SYNTH_CONTROLS };
+    return 'off';
   }
 }
 
@@ -222,6 +209,13 @@ function App() {
   const [initialLibrary] = useState(createInitialLibrary);
   const [songs, setSongs] = useState<Song[]>(initialLibrary.songs);
   const [currentSong, setCurrentSong] = useState<Song>(initialLibrary.currentSong);
+  const [activeTrackId, setActiveTrackId] = useState(initialLibrary.currentSong.tracks[0].id);
+  const activeScore = useMemo(
+    () => createEditableScore(currentSong, activeTrackId),
+    [currentSong, activeTrackId],
+  );
+  const instrumentSound = activeScore.instrumentSound;
+  const synthControls = activeScore.synthControls;
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [chordToneSelection, setChordToneSelection] = useState({ noteId: null as string | null, index: 0 });
@@ -229,11 +223,10 @@ function App() {
   const [isRestMode, setIsRestMode] = useState(false);
   const [isDotted, setIsDotted] = useState(false);
   const [playState, setPlayState] = useState<PlayState>('stopped');
-  const [instrumentSound, setInstrumentSound] = useState<InstrumentSound>(getInitialInstrument);
-  const [synthControls, setSynthControls] = useState<SynthControls>(getInitialSynthControls);
+  const [soloActiveTrack, setSoloActiveTrack] = useState(false);
   const [loopEnabled, setLoopEnabled] = useState(false);
+  const [noteNameMode, setNoteNameMode] = useState<NoteNameMode>(getInitialNoteNameMode);
   const [currentPlayMeasure, setCurrentPlayMeasure] = useState(0);
-  const [playbackProgress, setPlaybackProgress] = useState(0);
   const [editorMessage, setEditorMessage] = useState<string | null>(null);
   const [slurToolActive, setSlurToolActive] = useState(false);
   const [pendingSlurStartId, setPendingSlurStartId] = useState<string | null>(null);
@@ -261,6 +254,7 @@ function App() {
 
   const scoreRef = useRef<HTMLDivElement>(null);
   const currentSongRef = useRef(currentSong);
+  const currentScoreRef = useRef<EditableScore>(activeScore);
   const noteMapRef = useRef<RenderResult['noteElements']>(new Map());
   const measureRegionsRef = useRef<RenderResult['measureRegions']>([]);
   const dragRef = useRef<{ noteId: string; startY: number } | null>(null);
@@ -269,7 +263,6 @@ function App() {
   const composerBaseSongRef = useRef<Song | null>(null);
   const provisionalNoteIdRef = useRef<string | null>(null);
   const playbackAnimationRef = useRef<number | null>(null);
-  const lastPlaybackProgressUpdateRef = useRef(0);
   const highlightedNoteIdsRef = useRef<string[]>([]);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -280,12 +273,12 @@ function App() {
     setHighlightedNoteIds([]);
     setActivePlaybackKeys([]);
     setCurrentPlayMeasure(0);
-    setPlaybackProgress(0);
   }, []);
 
   useEffect(() => {
     currentSongRef.current = currentSong;
-  }, [currentSong]);
+    currentScoreRef.current = activeScore;
+  }, [currentSong, activeScore]);
 
   useEffect(() => {
     highlightedNoteIdsRef.current = highlightedNoteIds;
@@ -315,8 +308,8 @@ function App() {
 
   const findNoteLocation = useCallback(
     (noteId: string): NoteLocation | null => {
-      for (let mi = 0; mi < currentSong.measures.length; mi++) {
-        const m = currentSong.measures[mi];
+      for (let mi = 0; mi < activeScore.measures.length; mi++) {
+        const m = activeScore.measures[mi];
         for (const clef of ['treble', 'bass'] as const) {
           const voices = getMeasureVoices(m, clef);
           for (let voiceIdx = 0; voiceIdx < voices.length; voiceIdx++) {
@@ -327,45 +320,48 @@ function App() {
       }
       return null;
     },
-    [currentSong]
+    [activeScore]
   );
 
   const findNextNoteLocation = useCallback((location: NoteLocation): NoteLocation | null => {
     const currentVoice = getMeasureVoice(
-      currentSong.measures[location.measureIdx],
+      activeScore.measures[location.measureIdx],
       location.clef,
       location.voiceIdx,
     );
     if (currentVoice[location.noteIdx + 1]) {
       return { ...location, noteIdx: location.noteIdx + 1 };
     }
-    for (let measureIdx = location.measureIdx + 1; measureIdx < currentSong.measures.length; measureIdx++) {
-      const voice = getMeasureVoice(currentSong.measures[measureIdx], location.clef, location.voiceIdx);
+    for (let measureIdx = location.measureIdx + 1; measureIdx < activeScore.measures.length; measureIdx++) {
+      const voice = getMeasureVoice(activeScore.measures[measureIdx], location.clef, location.voiceIdx);
       if (voice.length > 0) {
         return { measureIdx, noteIdx: 0, clef: location.clef, voiceIdx: location.voiceIdx };
       }
     }
     return null;
-  }, [currentSong]);
+  }, [activeScore]);
 
   const getSelectedNote = useCallback((): NoteEntry | null => {
     if (!selectedNoteId) return null;
     const loc = findNoteLocation(selectedNoteId);
     if (!loc) return null;
     const notes = getMeasureVoice(
-      currentSong.measures[loc.measureIdx],
+      activeScore.measures[loc.measureIdx],
       loc.clef,
       loc.voiceIdx,
     );
     return notes[loc.noteIdx];
-  }, [selectedNoteId, findNoteLocation, currentSong]);
+  }, [selectedNoteId, findNoteLocation, activeScore]);
 
   const updateSong = useCallback(
-    (updater: (song: Song) => Song) => {
-      const next = updater(currentSong);
-      if (next === currentSong) return;
+    (updater: (song: EditableScore) => EditableScore) => {
+      const nextScore = updater(activeScore);
+      if (nextScore === activeScore) return;
 
-      const updatedSong = { ...next, updatedAt: Date.now() };
+      const updatedSong = {
+        ...replaceSongTrackFromScore(currentSong, nextScore),
+        updatedAt: Date.now(),
+      };
       stopPlaybackForEdit();
       setSaveStatus('saving');
       try {
@@ -381,8 +377,28 @@ function App() {
       setSongs(loadSongs());
       setSaveStatus('saved');
     },
-    [currentSong, stopPlaybackForEdit]
+    [activeScore, currentSong, stopPlaybackForEdit]
   );
+
+  const updateProject = useCallback((updater: (song: Song) => Song) => {
+    const next = updater(currentSong);
+    if (next === currentSong) return;
+    const updatedSong = { ...next, updatedAt: Date.now() };
+    stopPlaybackForEdit();
+    setSaveStatus('saving');
+    try {
+      saveSong(updatedSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
+    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
+    setRedoStack([]);
+    setCurrentSong(updatedSong);
+    setSongs(loadSongs());
+    setSaveStatus('saved');
+  }, [currentSong, stopPlaybackForEdit]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
@@ -428,7 +444,7 @@ function App() {
       const loc = findNoteLocation(selectedNoteId);
       if (!loc) return;
       const notes = getMeasureVoice(
-        currentSong.measures[loc.measureIdx],
+        activeScore.measures[loc.measureIdx],
         loc.clef,
         loc.voiceIdx,
       );
@@ -461,7 +477,7 @@ function App() {
       });
       setEditorMessage(null);
     },
-    [selectedNoteId, findNoteLocation, currentSong, updateSong]
+    [selectedNoteId, findNoteLocation, activeScore, currentSong.timeSignature, updateSong]
   );
 
   // Render score
@@ -475,11 +491,12 @@ function App() {
       animationFrame = requestAnimationFrame(() => {
         const result = renderSong(
           container,
-          currentSong,
+          activeScore,
           selectedNoteId,
           null,
           container.clientWidth - 40,
           selectedBarTarget,
+          noteNameMode,
         );
         noteMapRef.current = result.noteElements;
         measureRegionsRef.current = result.measureRegions;
@@ -500,7 +517,7 @@ function App() {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
     };
-  }, [currentSong, selectedNoteId, selectedBarTarget]);
+  }, [activeScore, selectedNoteId, selectedBarTarget, noteNameMode]);
 
   const clearPlaybackCursor = useCallback(() => {
     scoreRef.current
@@ -547,24 +564,22 @@ function App() {
       const cursor = playbackEngine.getCursorState();
       if (cursor) {
         drawPlaybackCursor(cursor.measureIdx, cursor.progress);
-        const now = performance.now();
-        if (now - lastPlaybackProgressUpdateRef.current >= 80) {
-          lastPlaybackProgressUpdateRef.current = now;
-          setPlaybackProgress(cursor.overallProgress);
-        }
+        setCurrentPlayMeasure((measureIdx) => (
+          measureIdx === cursor.measureIdx ? measureIdx : cursor.measureIdx
+        ));
       }
       if (playState === 'playing') {
         playbackAnimationRef.current = requestAnimationFrame(tick);
       }
     };
-    tick();
+    playbackAnimationRef.current = requestAnimationFrame(tick);
     return () => {
       if (playbackAnimationRef.current !== null) {
         cancelAnimationFrame(playbackAnimationRef.current);
         playbackAnimationRef.current = null;
       }
     };
-  }, [playState, clearPlaybackCursor, drawPlaybackCursor]);
+  }, [activeTrackId, playState, clearPlaybackCursor, drawPlaybackCursor]);
 
   useEffect(() => {
     if (playState !== 'playing' && playState !== 'paused') return;
@@ -602,7 +617,7 @@ function App() {
       }
     });
     return () => cancelAnimationFrame(animationFrame);
-  }, [currentSong.measures.length, selectedBarTarget]);
+  }, [activeScore.measures.length, selectedBarTarget]);
 
   const handleNoteSelection = useCallback((noteId: string) => {
     if (!slurToolActive) {
@@ -616,7 +631,7 @@ function App() {
     const clickedLocation = findNoteLocation(noteId);
     if (!clickedLocation) return;
     const clickedNote = getMeasureVoice(
-      currentSong.measures[clickedLocation.measureIdx],
+      activeScore.measures[clickedLocation.measureIdx],
       clickedLocation.clef,
       clickedLocation.voiceIdx,
     )[clickedLocation.noteIdx];
@@ -658,14 +673,14 @@ function App() {
     const endId = pendingOrder < clickedOrder ? noteId : pendingSlurStartId;
     const startLocation = pendingOrder < clickedOrder ? pendingLocation : clickedLocation;
     const startNote = getMeasureVoice(
-      currentSong.measures[startLocation.measureIdx],
+      activeScore.measures[startLocation.measureIdx],
       startLocation.clef,
       startLocation.voiceIdx,
     )[startLocation.noteIdx];
     const shouldRemove = startNote.slurToNoteId === endId;
     const defaultSlurPlacement = startLocation.voiceIdx > 0
       ? 'below'
-      : startLocation.clef === 'treble' || currentSong.staffLayout === 'bass-only'
+      : startLocation.clef === 'treble' || activeScore.staffLayout === 'bass-only'
         ? 'above'
         : 'below';
 
@@ -688,7 +703,7 @@ function App() {
     setSlurToolActive(false);
     setPendingSlurStartId(null);
     setEditorMessage(null);
-  }, [slurToolActive, pendingSlurStartId, findNoteLocation, currentSong, updateSong]);
+  }, [slurToolActive, pendingSlurStartId, findNoteLocation, activeScore, updateSong]);
 
   const getScorePoint = useCallback((clientX: number, clientY: number) => {
     const container = scoreRef.current;
@@ -709,10 +724,10 @@ function App() {
       y >= candidate.y && y <= candidate.y + candidate.height
     ));
     if (!region) return null;
-    const voices = getMeasureVoices(currentSong.measures[region.measureIdx], region.clef);
+    const voices = getMeasureVoices(activeScore.measures[region.measureIdx], region.clef);
     const voiceIdx = voices.length > 1 && y > region.voiceSplitY ? 1 : 0;
     return { measureIdx: region.measureIdx, clef: region.clef, voiceIdx };
-  }, [currentSong]);
+  }, [activeScore]);
 
   // Blank score space selects a bar. Clicking vertically above or below the
   // selected notehead adds a natural pitch to that chord.
@@ -739,7 +754,7 @@ function App() {
         const selectedInfo = noteMapRef.current.get(selectedNoteId);
         const selected = getSelectedNote();
         if (
-          selectedInfo && selected && !selected.isRest &&
+          selectedInfo && selected && !selected.isRest && !selected.drumMidi &&
           Math.abs(point.x - selectedInfo.x) <= 14 &&
           Math.abs(point.y - selectedInfo.y) >= 7 &&
           Math.abs(point.y - selectedInfo.y) <= 60
@@ -748,8 +763,12 @@ function App() {
             candidate.measureIdx === selectedInfo.measureIdx && candidate.clef === selectedInfo.clef
           ));
           if (region) {
-            const displayClef = currentSong.staffClefs?.[selectedInfo.clef] ?? selectedInfo.clef;
-            const key = staffYToKey(point.y, region.voiceSplitY - 20, displayClef);
+            const displayClef = activeScore.staffClefs?.[selectedInfo.clef] ?? selectedInfo.clef;
+            const key = staffYToKey(
+              point.y,
+              region.voiceSplitY - 20,
+              displayClef === 'bass' ? 'bass' : 'treble',
+            );
             if (!selected.keys.includes(key)) {
               modifySelectedNote((note) => {
                 const entries = note.keys.map((existingKey, index) => ({
@@ -796,7 +815,7 @@ function App() {
         setComposerRequest(null);
         setSelectedBarTarget(target);
         if (target) {
-          const voiceLabel = currentSong.voiceLabels?.[target.clef]?.[target.voiceIdx]
+          const voiceLabel = activeScore.voiceLabels?.[target.clef]?.[target.voiceIdx]
             ?? (target.voiceIdx === 0 ? 'upper voice' : 'lower voice');
           setEditorMessage(`Bar ${target.measureIdx + 1}, ${voiceLabel} selected. Click a piano key, or right-click the bar for Add note(s).`);
         } else {
@@ -806,7 +825,7 @@ function App() {
     },
     [
       composerRequest,
-      currentSong,
+      activeScore,
       getScorePoint,
       getScoreTargetAtPoint,
       getSelectedNote,
@@ -857,10 +876,10 @@ function App() {
     setScoreContextMenu(null);
     setIsRestMode(false);
     setComposerRequest({ id: ++composerRequestIdRef.current, mode: 'add', target });
-    const voiceLabel = currentSong.voiceLabels?.[target.clef]?.[target.voiceIdx]
+    const voiceLabel = activeScore.voiceLabels?.[target.clef]?.[target.voiceIdx]
       ?? (target.voiceIdx === 0 ? 'upper voice' : 'lower voice');
     setEditorMessage(`Adding to bar ${target.measureIdx + 1}, ${voiceLabel}: piano keys update the bar live. Press Enter to finish or Cancel to restore it.`);
-  }, [currentSong]);
+  }, [activeScore]);
 
   const addLowerVoice = useCallback((target: ScoreTarget) => {
     const lowerVoiceTarget = { ...target, voiceIdx: 1 };
@@ -893,7 +912,8 @@ function App() {
   const previewComposerKeys = useCallback((keys: string[]): boolean => {
     if (composerRequest?.mode !== 'add' || !composerRequest.target) return false;
     const target = composerRequest.target;
-    const song = currentSongRef.current;
+    const project = currentSongRef.current;
+    const song = currentScoreRef.current;
     const measure = song.measures[target.measureIdx];
     if (!measure) return false;
 
@@ -912,7 +932,9 @@ function App() {
         target.voiceIdx,
         notes,
       );
-      const previewSong = { ...song, measures };
+      const previewScore = { ...song, measures };
+      const previewSong = replaceSongTrackFromScore(project, previewScore);
+      currentScoreRef.current = previewScore;
       currentSongRef.current = previewSong;
       setCurrentSong(previewSong);
       setSelectedNoteId(null);
@@ -920,12 +942,14 @@ function App() {
     }
 
     const normalized = normalizePianoKeys(keys, song.keySignature);
+    const drumMidi = song.kind === 'percussion' ? keys.map(pianoKeyToMidi) : undefined;
     const noteId = provisionalId ?? createId();
     const existing = provisionalIndex >= 0 ? notes[provisionalIndex] : null;
     const provisionalNote: NoteEntry = {
       ...(existing ?? { id: noteId, duration: selectedDuration }),
-      keys: normalized.keys,
-      accidentals: normalized.accidentals,
+      keys: drumMidi?.map(drumMidiToStaffKey) ?? normalized.keys,
+      accidentals: drumMidi ? undefined : normalized.accidentals,
+      drumMidi,
       isRest: undefined,
       dotted: isDotted || undefined,
       suppressAccidentals: undefined,
@@ -948,8 +972,10 @@ function App() {
       target.voiceIdx,
       notes,
     );
-    const previewSong = { ...song, measures };
+    const previewScore = { ...song, measures };
+    const previewSong = replaceSongTrackFromScore(project, previewScore);
     provisionalNoteIdRef.current = noteId;
+    currentScoreRef.current = previewScore;
     currentSongRef.current = previewSong;
     setCurrentSong(previewSong);
     setSelectedNoteId(noteId);
@@ -1062,12 +1088,12 @@ function App() {
     }
     const target = selectedBarTarget ?? {
       measureIdx: 0,
-      clef: currentSong.staffLayout === 'bass-only' ? 'bass' as const : 'treble' as const,
+      clef: activeScore.staffLayout === 'bass-only' ? 'bass' as const : 'treble' as const,
       voiceIdx: 0,
     };
     setSelectedBarTarget(target);
     setScoreContextMenu({ kind: 'measure', x, y, target });
-  }, [currentSong.staffLayout, findNoteLocation, selectedBarTarget, selectedNoteId]);
+  }, [activeScore.staffLayout, findNoteLocation, selectedBarTarget, selectedNoteId]);
 
   const handleContextMenuKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
@@ -1098,7 +1124,7 @@ function App() {
     const loc = findNoteLocation(selectedNoteId);
     if (!loc) return;
     const notes = getMeasureVoice(
-      currentSong.measures[loc.measureIdx],
+      activeScore.measures[loc.measureIdx],
       loc.clef,
       loc.voiceIdx,
     );
@@ -1108,20 +1134,20 @@ function App() {
       setSelectedNoteId(notes[newIdx].id);
     } else if (newIdx < 0) {
       for (let measureIdx = loc.measureIdx - 1; measureIdx >= 0; measureIdx--) {
-        const previous = getMeasureVoice(currentSong.measures[measureIdx], loc.clef, loc.voiceIdx);
+        const previous = getMeasureVoice(activeScore.measures[measureIdx], loc.clef, loc.voiceIdx);
         if (previous.length === 0) continue;
         setSelectedNoteId(previous[previous.length - 1].id);
         break;
       }
     } else if (newIdx >= notes.length) {
-      for (let measureIdx = loc.measureIdx + 1; measureIdx < currentSong.measures.length; measureIdx++) {
-        const next = getMeasureVoice(currentSong.measures[measureIdx], loc.clef, loc.voiceIdx);
+      for (let measureIdx = loc.measureIdx + 1; measureIdx < activeScore.measures.length; measureIdx++) {
+        const next = getMeasureVoice(activeScore.measures[measureIdx], loc.clef, loc.voiceIdx);
         if (next.length === 0) continue;
         setSelectedNoteId(next[0].id);
         break;
       }
     }
-  }, [selectedNoteId, findNoteLocation, currentSong]);
+  }, [selectedNoteId, findNoteLocation, activeScore]);
 
   const handleDeleteNote = useCallback(() => {
     if (!selectedNoteId) return;
@@ -1156,6 +1182,10 @@ function App() {
     const location = findNoteLocation(selectedNoteId);
     const selected = getSelectedNote();
     if (!location || !selected || selected.isRest) return;
+    if (selected.drumMidi) {
+      setEditorMessage('Drum hits cannot be tied. Adjust their duration instead.');
+      return;
+    }
     if (selected.tieToNext) {
       modifySelectedNote((note) => ({ ...note, tieToNext: undefined }));
       return;
@@ -1166,7 +1196,7 @@ function App() {
       return;
     }
     const nextNote = getMeasureVoice(
-      currentSong.measures[nextLocation.measureIdx],
+      activeScore.measures[nextLocation.measureIdx],
       nextLocation.clef,
       nextLocation.voiceIdx,
     )[nextLocation.noteIdx];
@@ -1176,7 +1206,8 @@ function App() {
     }
     modifySelectedNote((note) => ({ ...note, tieToNext: true }));
   }, [
-    currentSong,
+    activeScore,
+    currentSong.keySignature,
     findNextNoteLocation,
     findNoteLocation,
     getSelectedNote,
@@ -1189,7 +1220,7 @@ function App() {
       const location = findNoteLocation(selectedNoteId);
       if (!location) return;
       const note = getMeasureVoice(
-        currentSong.measures[location.measureIdx],
+        activeScore.measures[location.measureIdx],
         location.clef,
         location.voiceIdx,
       )[location.noteIdx];
@@ -1208,12 +1239,12 @@ function App() {
     }
 
     if (selectedBarTarget) {
-      const measure = currentSong.measures[selectedBarTarget.measureIdx];
+      const measure = activeScore.measures[selectedBarTarget.measureIdx];
       if (!measure) return;
       setEditorClipboard({ kind: 'measure', measure: cloneMeasureForPaste(measure) });
       setEditorMessage(`Copied bar ${selectedBarTarget.measureIdx + 1}.`);
     }
-  }, [currentSong, findNoteLocation, selectedBarTarget, selectedNoteId]);
+  }, [activeScore, findNoteLocation, selectedBarTarget, selectedNoteId]);
 
   const handlePaste = useCallback(() => {
     if (!editorClipboard) return;
@@ -1222,18 +1253,21 @@ function App() {
     if (editorClipboard.kind === 'measure') {
       const targetMeasureIdx = selectedLocation?.measureIdx
         ?? selectedBarTarget?.measureIdx
-        ?? currentSong.measures.length - 1;
-      const insertIdx = Math.max(0, Math.min(currentSong.measures.length, targetMeasureIdx + 1));
+        ?? activeScore.measures.length - 1;
+      const insertIdx = Math.max(0, Math.min(activeScore.measures.length, targetMeasureIdx + 1));
       const pastedMeasure = cloneMeasureForPaste(editorClipboard.measure);
-      updateSong((song) => ({
+      updateProject((song) => ({
         ...song,
-        measures: [
-          ...song.measures.slice(0, insertIdx),
-          pastedMeasure,
-          ...song.measures.slice(insertIdx),
-        ],
+        tracks: song.tracks.map((track) => ({
+          ...track,
+          measures: [
+            ...track.measures.slice(0, insertIdx),
+            track.id === activeTrackId ? pastedMeasure : createDefaultMeasure(),
+            ...track.measures.slice(insertIdx),
+          ],
+        })),
       }));
-      const clef = currentSong.staffLayout === 'bass-only'
+      const clef = activeScore.staffLayout === 'bass-only'
         ? 'bass'
         : selectedBarTarget?.clef ?? selectedLocation?.clef ?? 'treble';
       setSelectedNoteId(null);
@@ -1246,7 +1280,7 @@ function App() {
 
     const fallbackMeasureIdx = Math.max(
       0,
-      Math.min(currentSong.measures.length - 1, editorClipboard.source.measureIdx),
+      Math.min(activeScore.measures.length - 1, editorClipboard.source.measureIdx),
     );
     const target: ScoreTarget = selectedLocation
       ? {
@@ -1259,7 +1293,7 @@ function App() {
           clef: editorClipboard.source.clef,
           voiceIdx: editorClipboard.source.voiceIdx,
         };
-    const targetMeasure = currentSong.measures[target.measureIdx];
+    const targetMeasure = activeScore.measures[target.measureIdx];
     if (!targetMeasure) return;
     const targetNotes = getMeasureVoice(targetMeasure, target.clef, target.voiceIdx);
     const pastedNote = cloneNoteForPaste(editorClipboard.note);
@@ -1289,11 +1323,14 @@ function App() {
     setScoreContextMenu(null);
     setEditorMessage(`Pasted ${pastedNote.isRest ? 'rest' : pastedNote.keys.length > 1 ? 'chord' : 'note'} into bar ${target.measureIdx + 1}.`);
   }, [
+    activeScore,
+    activeTrackId,
     currentSong,
     editorClipboard,
     findNoteLocation,
     selectedBarTarget,
     selectedNoteId,
+    updateProject,
     updateSong,
   ]);
 
@@ -1306,7 +1343,6 @@ function App() {
     }
     setPlayState('loading');
     setCurrentPlayMeasure(0);
-    setPlaybackProgress(0);
     setHighlightedNoteIds([]);
     setActivePlaybackKeys([]);
     playbackEngine.onNotes((measureIdx, noteIds) => {
@@ -1319,10 +1355,9 @@ function App() {
       setHighlightedNoteIds([]);
       setActivePlaybackKeys([]);
       setCurrentPlayMeasure(0);
-      setPlaybackProgress(0);
     });
     try {
-      await playbackEngine.play(currentSong, instrumentSound, 0, loopEnabled);
+      await playbackEngine.play(currentSong, activeTrackId, 0, loopEnabled, soloActiveTrack);
       if (playbackEngine.getState() === 'playing') {
         setPlayState('playing');
         if (playbackEngine.consumeFallbackSound()) {
@@ -1336,7 +1371,7 @@ function App() {
       setActivePlaybackKeys([]);
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     }
-  }, [currentSong, instrumentSound, loopEnabled, playState]);
+  }, [activeTrackId, currentSong, loopEnabled, playState, soloActiveTrack]);
 
   const handlePause = useCallback(() => {
     playbackEngine.pause();
@@ -1349,16 +1384,59 @@ function App() {
     setHighlightedNoteIds([]);
     setActivePlaybackKeys([]);
     setCurrentPlayMeasure(0);
-    setPlaybackProgress(0);
+  }, []);
+
+  const handleTrackChange = useCallback((trackId: string) => {
+    if (!currentSong.tracks.some((track) => track.id === trackId) || trackId === activeTrackId) return;
+    playbackEngine.setActiveTrack(trackId);
+    setHighlightedNoteIds([]);
+    setActivePlaybackKeys([]);
+    setActiveTrackId(trackId);
+    setSelectedNoteId(null);
+    setSelectedBarTarget(null);
+    setScoreContextMenu(null);
+    setComposerRequest(null);
+    setSlurToolActive(false);
+    setPendingSlurStartId(null);
+    setEditorMessage(null);
+  }, [activeTrackId, currentSong.tracks]);
+
+  const handleActiveTrackMuteToggle = useCallback(() => {
+    const muted = !activeScore.muted;
+    const nextSong = {
+      ...replaceSongTrackFromScore(currentSong, { ...activeScore, muted }),
+      updatedAt: Date.now(),
+    };
+    setSaveStatus('saving');
+    try {
+      saveSong(nextSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
+    playbackEngine.setTrackMuted(activeTrackId, muted);
+    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
+    setRedoStack([]);
+    setCurrentSong(nextSong);
+    setSongs(loadSongs());
+    setHighlightedNoteIds([]);
+    setActivePlaybackKeys([]);
+    setSaveStatus('saved');
+  }, [activeScore, activeTrackId, currentSong]);
+
+  const handleSoloActiveTrackToggle = useCallback(() => {
+    setSoloActiveTrack((solo) => {
+      const next = !solo;
+      playbackEngine.setSoloActiveTrack(next);
+      return next;
+    });
+    setHighlightedNoteIds([]);
+    setActivePlaybackKeys([]);
   }, []);
 
   const handleInstrumentSoundChange = useCallback((sound: InstrumentSound) => {
-    setInstrumentSound(sound);
-    try {
-      localStorage.setItem(INSTRUMENT_STORAGE_KEY, sound);
-    } catch {
-      // Sound selection can remain session-only when browser storage is unavailable.
-    }
+    updateSong((score) => ({ ...score, instrumentSound: sound }));
     void playbackEngine.selectInstrument(sound).then(() => {
       if (playbackEngine.consumeFallbackSound()) {
         setEditorMessage('Grand Piano samples are unavailable, so Electric Keys will be used for now.');
@@ -1366,23 +1444,43 @@ function App() {
     }).catch(() => {
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     });
-  }, []);
+  }, [updateSong]);
 
   const handleSynthControlsChange = useCallback((controls: SynthControls) => {
-    setSynthControls(controls);
+    const nextScore = { ...activeScore, synthControls: controls };
+    const nextSong = {
+      ...replaceSongTrackFromScore(currentSong, nextScore),
+      updatedAt: Date.now(),
+    };
     try {
-      localStorage.setItem(SYNTH_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
-    } catch {
-      // Controls still work for the current session.
+      saveSong(nextSong);
+      setCurrentSong(nextSong);
+      setSongs(loadSongs());
+      setSaveStatus('saved');
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
     }
     playbackEngine.setSynthControls(controls);
-  }, []);
+  }, [activeScore, currentSong]);
 
   const handleLoopToggle = useCallback(() => {
     setLoopEnabled((enabled) => {
       const next = !enabled;
       playbackEngine.setLoop(next);
       return next;
+    });
+  }, []);
+
+  const handleNoteNameModeChange = useCallback((requestedMode: Exclude<NoteNameMode, 'off'>) => {
+    setNoteNameMode((currentMode) => {
+      const nextMode: NoteNameMode = currentMode === requestedMode ? 'off' : requestedMode;
+      try {
+        localStorage.setItem(NOTE_NAMES_STORAGE_KEY, nextMode);
+      } catch {
+        // This visual preference can remain session-only when storage is unavailable.
+      }
+      return nextMode;
     });
   }, []);
 
@@ -1489,8 +1587,9 @@ function App() {
     let measureIdx = explicitTarget?.measureIdx ?? 0;
     let insertIdx = -1;
     let voiceIdx = explicitTarget?.voiceIdx ?? 0;
-    let targetClef = explicitTarget?.clef ?? clef;
-    let shouldAppendMeasure = false;
+    let targetClef = activeScore.kind === 'percussion'
+      ? 'treble' as const
+      : explicitTarget?.clef ?? clef;
 
     if (!explicitTarget && selectedNoteId) {
       const loc = findNoteLocation(selectedNoteId);
@@ -1505,13 +1604,19 @@ function App() {
     }
 
     const normalized = normalizePianoKeys(keys, currentSong.keySignature);
+    const drumMidi = activeScore.kind === 'percussion'
+      ? keys.map(pianoKeyToMidi)
+      : undefined;
     const newNote: NoteEntry = {
       id: createId(),
-      keys: isRestMode ? (targetClef === 'treble' ? ['b/4'] : ['d/3']) : normalized.keys,
+      keys: isRestMode
+        ? (targetClef === 'treble' ? ['b/4'] : ['d/3'])
+        : drumMidi?.map(drumMidiToStaffKey) ?? normalized.keys,
       duration: selectedDuration,
       isRest: isRestMode,
       dotted: isDotted || undefined,
-      accidentals: !isRestMode ? normalized.accidentals : undefined,
+      accidentals: !isRestMode && !drumMidi ? normalized.accidentals : undefined,
+      drumMidi: !isRestMode ? drumMidi : undefined,
     };
 
     const newNoteBeats = getNoteBeatValue(newNote);
@@ -1522,7 +1627,7 @@ function App() {
     }
 
     const notesInTarget = getMeasureVoice(
-      currentSong.measures[measureIdx],
+      activeScore.measures[measureIdx],
       targetClef,
       voiceIdx,
     );
@@ -1532,9 +1637,9 @@ function App() {
         return false;
       }
       let nextMeasureIdx = measureIdx + 1;
-      while (nextMeasureIdx < currentSong.measures.length) {
+      while (nextMeasureIdx < activeScore.measures.length) {
         const nextNotes = getMeasureVoice(
-          currentSong.measures[nextMeasureIdx],
+          activeScore.measures[nextMeasureIdx],
           targetClef,
           voiceIdx,
         );
@@ -1543,23 +1648,25 @@ function App() {
       }
       measureIdx = nextMeasureIdx;
       insertIdx = -1;
-      shouldAppendMeasure = measureIdx === currentSong.measures.length;
     }
 
-    updateSong((song) => {
-      const measures = song.measures.map((measure) => ({ ...measure }));
-      if (shouldAppendMeasure) measures.push(createDefaultMeasure());
-      const newSong = { ...song, measures };
-      const notes = [...getMeasureVoice(newSong.measures[measureIdx], targetClef, voiceIdx)];
-      if (insertIdx >= 0) notes.splice(insertIdx, 0, newNote);
-      else notes.push(newNote);
-      newSong.measures[measureIdx] = replaceMeasureVoice(
-        newSong.measures[measureIdx],
-        targetClef,
-        voiceIdx,
-        notes,
-      );
-      return newSong;
+    updateProject((song) => {
+      const tracks = song.tracks.map((track) => {
+        const measures = track.measures.map((measure) => ({ ...measure }));
+        while (measures.length <= measureIdx) measures.push(createDefaultMeasure());
+        if (track.id !== activeTrackId) return { ...track, measures };
+        const notes = [...getMeasureVoice(measures[measureIdx], targetClef, voiceIdx)];
+        if (insertIdx >= 0) notes.splice(insertIdx, 0, newNote);
+        else notes.push(newNote);
+        measures[measureIdx] = replaceMeasureVoice(
+          measures[measureIdx],
+          targetClef,
+          voiceIdx,
+          notes,
+        );
+        return { ...track, measures };
+      });
+      return { ...song, tracks };
     });
     setSelectedNoteId(newNote.id);
     if (explicitTarget) setSelectedBarTarget({ measureIdx, clef: targetClef, voiceIdx });
@@ -1568,23 +1675,27 @@ function App() {
   };
 
   const handleDeleteMeasure = () => {
-    if (currentSong.measures.length <= 1) return;
+    if (activeScore.measures.length <= 1) return;
     const loc = selectedNoteId ? findNoteLocation(selectedNoteId) : null;
     const measureIdx = loc?.measureIdx
       ?? selectedBarTarget?.measureIdx
-      ?? currentSong.measures.length - 1;
-    updateSong((song) => {
-      const removedMeasure = song.measures[measureIdx];
-      const removedNoteIds = new Set(getMeasureNoteIds(removedMeasure));
+      ?? activeScore.measures.length - 1;
+    updateProject((song) => {
+      const removedNoteIds = new Set(song.tracks.flatMap((track) => (
+        track.measures[measureIdx] ? getMeasureNoteIds(track.measures[measureIdx]) : []
+      )));
       return {
         ...song,
-        measures: song.measures
-          .filter((_, index) => index !== measureIdx)
-          .map((measure) => mapMeasureNotes(measure, (note) => (
+        tracks: song.tracks.map((track) => ({
+          ...track,
+          measures: track.measures
+            .filter((_, index) => index !== measureIdx)
+            .map((measure) => mapMeasureNotes(measure, (note) => (
               note.slurToNoteId && removedNoteIds.has(note.slurToNoteId)
                 ? { ...note, slurToNoteId: undefined }
                 : note
             ))),
+        })),
       };
     });
     setSelectedNoteId(null);
@@ -1593,12 +1704,16 @@ function App() {
   };
 
   const handleAddMeasure = () => {
-    const measureIdx = currentSong.measures.length;
-    const clef = currentSong.staffLayout === 'bass-only'
+    const measureIdx = activeScore.measures.length;
+    const clef = activeScore.staffLayout === 'bass-only'
       ? 'bass'
       : selectedBarTarget?.clef ?? 'treble';
-    updateSong((song) => ({
-      ...song, measures: [...song.measures, createDefaultMeasure()],
+    updateProject((song) => ({
+      ...song,
+      tracks: song.tracks.map((track) => ({
+        ...track,
+        measures: [...track.measures, createDefaultMeasure()],
+      })),
     }));
     setSelectedNoteId(null);
     setSelectedBarTarget({ measureIdx, clef, voiceIdx: 0 });
@@ -1608,7 +1723,7 @@ function App() {
 
   const handleAccidental = (acc: Accidental) => {
     modifySelectedNote((note) => {
-      if (note.isRest) return note;
+      if (note.isRest || note.drumMidi) return note;
       const toneIndex = Math.max(0, Math.min(note.keys.length - 1, selectedChordToneIndex));
       const accidentals = note.keys.map((_, index) => note.accidentals?.[index] ?? null);
       accidentals[toneIndex] = accidentals[toneIndex] === acc ? null : acc;
@@ -1637,10 +1752,15 @@ function App() {
   const handleRepeatStart = () => {
     const loc = selectedNoteId ? findNoteLocation(selectedNoteId) : null;
     const measureIdx = loc?.measureIdx ?? selectedBarTarget?.measureIdx ?? 0;
-    updateSong((song) => {
-      const newSong = { ...song, measures: song.measures.map((m) => ({ ...m })) };
-      newSong.measures[measureIdx] = { ...newSong.measures[measureIdx], repeatStart: !newSong.measures[measureIdx].repeatStart };
-      return newSong;
+    const enabled = !activeScore.measures[measureIdx]?.repeatStart;
+    updateProject((song) => {
+      const tracks = song.tracks.map((track) => ({
+        ...track,
+        measures: track.measures.map((measure, index) => (
+          index === measureIdx ? { ...measure, repeatStart: enabled } : measure
+        )),
+      }));
+      return { ...song, tracks };
     });
   };
 
@@ -1648,11 +1768,16 @@ function App() {
     const loc = selectedNoteId ? findNoteLocation(selectedNoteId) : null;
     const measureIdx = loc?.measureIdx
       ?? selectedBarTarget?.measureIdx
-      ?? currentSong.measures.length - 1;
-    updateSong((song) => {
-      const newSong = { ...song, measures: song.measures.map((m) => ({ ...m })) };
-      newSong.measures[measureIdx] = { ...newSong.measures[measureIdx], repeatEnd: !newSong.measures[measureIdx].repeatEnd };
-      return newSong;
+      ?? activeScore.measures.length - 1;
+    const enabled = !activeScore.measures[measureIdx]?.repeatEnd;
+    updateProject((song) => {
+      const tracks = song.tracks.map((track) => ({
+        ...track,
+        measures: track.measures.map((measure, index) => (
+          index === measureIdx ? { ...measure, repeatEnd: enabled } : measure
+        )),
+      }));
+      return { ...song, tracks };
     });
   };
 
@@ -1669,6 +1794,7 @@ function App() {
     }
     setCurrentSongId(newSong.id);
     setCurrentSong(newSong);
+    setActiveTrackId(newSong.tracks[0].id);
     setSongs(loadSongs());
     setSelectedNoteId(null);
     setSelectedBarTarget(null);
@@ -1686,6 +1812,7 @@ function App() {
     if (song) {
       handleStop();
       setCurrentSong(song);
+      setActiveTrackId(song.tracks[0].id);
       setCurrentSongId(id);
       setSelectedNoteId(null);
       setSelectedBarTarget(null);
@@ -1724,7 +1851,11 @@ function App() {
     const remaining = loadSongs();
     setSongs(remaining);
     if (id === currentSong.id) {
-      if (remaining.length > 0) { setCurrentSong(remaining[0]); setCurrentSongId(remaining[0].id); }
+      if (remaining.length > 0) {
+        setCurrentSong(remaining[0]);
+        setActiveTrackId(remaining[0].tracks[0].id);
+        setCurrentSongId(remaining[0].id);
+      }
       else handleNewSong();
       setSelectedNoteId(null);
       setSelectedBarTarget(null);
@@ -1746,6 +1877,7 @@ function App() {
       if (deletedSongUndo.wasCurrent) {
         handleStop();
         setCurrentSong(deletedSongUndo.song);
+        setActiveTrackId(deletedSongUndo.song.tracks[0].id);
         setCurrentSongId(deletedSongUndo.song.id);
       }
       setDeletedSongUndo(null);
@@ -1770,6 +1902,7 @@ function App() {
       setSaveStatus('saving');
       saveSong(song);
       setCurrentSong(song);
+      setActiveTrackId(song.tracks[0].id);
       setCurrentSongId(song.id);
       setSongs(loadSongs());
       setSelectedNoteId(null);
@@ -1803,15 +1936,17 @@ function App() {
 
   const handleTimeSignatureChange = (timeSignature: [number, number]) => {
     const nextCapacity = getMeasureCapacity(timeSignature);
-    for (let measureIdx = 0; measureIdx < currentSong.measures.length; measureIdx++) {
-      for (const clef of ['treble', 'bass'] as const) {
-        const overflowingVoice = getMeasureVoices(currentSong.measures[measureIdx], clef)
-          .findIndex((voice) => getMeasureBeatCount(voice) > nextCapacity + 1e-9);
-        if (overflowingVoice >= 0) {
-          setEditorMessage(
-            `Cannot change to ${timeSignature[0]}/${timeSignature[1]}: bar ${measureIdx + 1}, ${clef} voice ${overflowingVoice + 1} is too long.`,
-          );
-          return;
+    for (const track of currentSong.tracks) {
+      for (let measureIdx = 0; measureIdx < track.measures.length; measureIdx++) {
+        for (const clef of ['treble', 'bass'] as const) {
+          const overflowingVoice = getMeasureVoices(track.measures[measureIdx], clef)
+            .findIndex((voice) => getMeasureBeatCount(voice) > nextCapacity + 1e-9);
+          if (overflowingVoice >= 0) {
+            setEditorMessage(
+              `Cannot change to ${timeSignature[0]}/${timeSignature[1]}: ${track.name}, bar ${measureIdx + 1}, ${clef} voice ${overflowingVoice + 1} is too long.`,
+            );
+            return;
+          }
         }
       }
     }
@@ -1826,6 +1961,8 @@ function App() {
   const canCopy = Boolean(selectedNoteId || selectedBarTarget);
   const selectedNoteLabel = selectedNote?.isRest
     ? 'Rest'
+    : selectedNote?.drumMidi
+      ? selectedNote.drumMidi.map((midi) => GENERAL_MIDI_DRUM_NAMES[midi] ?? `Drum ${midi}`).join(', ')
     : selectedNote?.keys.map((key, index) => {
         const [name, octave] = key.split('/');
         const accidental = selectedNote.accidentals?.[index];
@@ -1837,7 +1974,7 @@ function App() {
   const measureBeats = selectedLoc
     ? getMeasureBeatCount(
         getMeasureVoice(
-          currentSong.measures[selectedLoc.measureIdx],
+          activeScore.measures[selectedLoc.measureIdx],
           selectedLoc.clef,
           selectedLoc.voiceIdx,
         )
@@ -1847,7 +1984,7 @@ function App() {
   const composerLabel = composerRequest?.mode === 'edit'
     ? `Editing ${selectedNote && selectedNote.keys.length > 1 ? 'chord' : 'note'}`
     : composerRequest?.target
-      ? `Bar ${composerRequest.target.measureIdx + 1} · ${currentSong.voiceLabels?.[composerRequest.target.clef]?.[composerRequest.target.voiceIdx] ?? (composerRequest.target.voiceIdx === 0 ? 'upper voice' : 'lower voice')}`
+      ? `Bar ${composerRequest.target.measureIdx + 1} · ${activeScore.voiceLabels?.[composerRequest.target.clef]?.[composerRequest.target.voiceIdx] ?? (composerRequest.target.voiceIdx === 0 ? 'upper voice' : 'lower voice')}`
       : '';
 
   return (
@@ -1855,24 +1992,21 @@ function App() {
       <PlaybackBar
         songId={currentSong.id}
         playState={playState}
-        tempo={currentSong.tempo}
-        timeSignature={currentSong.timeSignature}
-        keySignature={currentSong.keySignature}
         loopEnabled={loopEnabled}
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
         onLoopToggle={handleLoopToggle}
-        onTempoChange={(tempo) => updateSong((song) => song.tempo === tempo ? song : { ...song, tempo })}
-        onTimeSignatureChange={handleTimeSignatureChange}
-        onKeySignatureChange={(keySignature) => updateSong((song) => (
-          song.keySignature === keySignature ? song : { ...song, keySignature }
-        ))}
         songTitle={currentSong.title}
         onTitleChange={(title) => updateSong((song) => song.title === title ? song : { ...song, title })}
         currentMeasure={currentPlayMeasure}
-        totalMeasures={currentSong.measures.length}
-        playbackProgress={playbackProgress}
+        totalMeasures={activeScore.measures.length}
+        tracks={currentSong.tracks}
+        activeTrackId={activeTrackId}
+        soloActiveTrack={soloActiveTrack}
+        onTrackChange={handleTrackChange}
+        onSoloActiveTrackToggle={handleSoloActiveTrackToggle}
+        onActiveTrackMuteToggle={handleActiveTrackMuteToggle}
       />
       <Toolbar
         selectedDuration={selectedDuration}
@@ -1906,10 +2040,20 @@ function App() {
         canRedo={redoStack.length > 0}
         canCopy={canCopy}
         canPaste={Boolean(editorClipboard)}
-        canDeleteMeasure={currentSong.measures.length > 1}
+        canDeleteMeasure={activeScore.measures.length > 1}
         selectedNote={selectedNote}
         selectedChordToneIndex={selectedChordToneIndex}
         onSelectedChordToneIndexChange={setSelectedChordToneIndex}
+        noteNameMode={noteNameMode}
+        onNoteNameModeChange={handleNoteNameModeChange}
+        tempo={currentSong.tempo}
+        timeSignature={currentSong.timeSignature}
+        keySignature={currentSong.keySignature}
+        onTempoChange={(tempo) => updateSong((song) => song.tempo === tempo ? song : { ...song, tempo })}
+        onTimeSignatureChange={handleTimeSignatureChange}
+        onKeySignatureChange={(keySignature) => updateSong((song) => (
+          song.keySignature === keySignature ? song : { ...song, keySignature }
+        ))}
       />
       <div className="main-content">
         <SongManager
@@ -1956,7 +2100,7 @@ function App() {
                   <div className="score-context-title">
                     Bar {scoreContextMenu.target.measureIdx + 1}
                     <span>
-                      {currentSong.voiceLabels?.[scoreContextMenu.target.clef]?.[scoreContextMenu.target.voiceIdx]
+                      {activeScore.voiceLabels?.[scoreContextMenu.target.clef]?.[scoreContextMenu.target.voiceIdx]
                         ?? (scoreContextMenu.target.voiceIdx === 0 ? 'Upper voice' : 'Lower voice')}
                     </span>
                   </div>
@@ -1966,7 +2110,7 @@ function App() {
                     <kbd>Enter</kbd>
                   </button>
                   {getMeasureVoices(
-                    currentSong.measures[scoreContextMenu.target.measureIdx],
+                    activeScore.measures[scoreContextMenu.target.measureIdx],
                     scoreContextMenu.target.clef,
                   ).length === 1 && (
                     <button type="button" role="menuitem" onClick={() => addLowerVoice(scoreContextMenu.target)}>
@@ -2015,7 +2159,7 @@ function App() {
               <span className="status-note-info">
                 <strong>Bar {selectedBarTarget.measureIdx + 1}</strong>
                 {' '}&middot;{' '}
-                {currentSong.voiceLabels?.[selectedBarTarget.clef]?.[selectedBarTarget.voiceIdx]
+                {activeScore.voiceLabels?.[selectedBarTarget.clef]?.[selectedBarTarget.voiceIdx]
                   ?? (selectedBarTarget.voiceIdx === 0 ? 'Upper voice' : 'Lower voice')}
                 {' '}&middot;{' '}Piano input will be added here
               </span>
@@ -2076,7 +2220,7 @@ function App() {
         </div>
       )}
       <NoteInput
-        key={composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}
+        key={`${activeTrackId}-${composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}`}
         onAddNote={handleAddNote}
         selectedNote={selectedNote}
         session={composerRequest ? { mode: composerRequest.mode, label: composerLabel } : null}
@@ -2089,7 +2233,20 @@ function App() {
         onInstrumentSoundChange={handleInstrumentSoundChange}
         onSynthControlsChange={handleSynthControlsChange}
         onPreviewNotes={handlePreviewNotes}
+        showAllNoteNames={noteNameMode !== 'off'}
+        trackKind={activeScore.kind}
         onUpdateSelectedKeys={(keys) => {
+          if (activeScore.kind === 'percussion') {
+            const drumMidi = keys.map(pianoKeyToMidi);
+            modifySelectedNote((note) => ({
+              ...note,
+              keys: drumMidi.map(drumMidiToStaffKey),
+              drumMidi,
+              accidentals: undefined,
+              suppressAccidentals: undefined,
+            }));
+            return;
+          }
           const normalized = normalizePianoKeys(keys, currentSong.keySignature);
           modifySelectedNote((note) => ({
             ...note,

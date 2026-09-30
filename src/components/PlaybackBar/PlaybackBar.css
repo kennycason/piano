@@ -1,23 +1,93 @@
 .playback-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(260px, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 8px 16px;
   background: #181825;
   border-bottom: 1px solid #313244;
   gap: 16px;
-  min-height: 60px;
+  min-height: 52px;
 }
 
 .playback-left, .playback-right {
-  flex: 1;
+  min-width: 0;
+}
+
+.playback-left {
+  display: flex;
+  align-items: center;
+}
+
+.track-navigation {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.track-select-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.track-kind-icon {
+  color: #89b4fa;
+  font-size: 12px;
+}
+
+.track-select {
+  width: 158px;
+  min-width: 0;
+  padding: 3px 20px 3px 7px;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  outline: none;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-size: 11px;
+}
+
+.track-select:focus {
+  border-color: #89b4fa;
+}
+
+.track-count {
+  min-width: 25px;
+  color: #6c7086;
+  font-size: 9px;
+  text-align: center;
+}
+
+.track-mode-btn {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  background: #313244;
+  color: #a6adc8;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.track-mode-btn.active {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+}
+
+.track-mode-btn.active.mute {
+  border-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.16);
+  color: #f38ba8;
 }
 
 .playback-right {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 14px;
 }
 
 .playback-center {
@@ -34,7 +104,7 @@
   padding: 6px 12px;
   font-size: 16px;
   font-weight: 600;
-  width: 250px;
+  width: min(100%, 300px);
 }
 
 .song-title-input:focus {
@@ -124,73 +194,13 @@
   to { transform: rotate(360deg); }
 }
 
-/* Progress bar */
-.progress-track {
-  width: 180px;
-  height: 20px;
-  background: #313244;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #89b4fa;
-  border-radius: 10px;
-  transition: width 0.15s;
-  opacity: 0.4;
-}
-
-.progress-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.bar-counter {
+  min-width: 70px;
   font-size: 10px;
   font-weight: 600;
-  color: #cdd6f4;
-}
-
-.tempo-label,
-.key-signature-label,
-.time-signature-label {
   color: #a6adc8;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tempo-input,
-.key-signature-select,
-.time-signature-select {
-  background: #1e1e2e;
-  color: #cdd6f4;
-  border: 1px solid #45475a;
-  border-radius: 4px;
-  padding: 4px 8px;
-  width: 60px;
-  font-size: 13px;
   text-align: center;
-}
-
-.key-signature-select {
-  width: 58px;
-  padding-inline: 7px;
-}
-
-.time-signature-select {
-  width: 62px;
-  padding-inline: 6px;
-}
-
-.tempo-input:focus,
-.key-signature-select:focus,
-.time-signature-select:focus {
-  outline: none;
-  border-color: #89b4fa;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -202,8 +212,7 @@
 
 @media (max-width: 760px) {
   .playback-bar {
-    display: grid;
-    grid-template-columns: minmax(0, calc(100% - 136px)) 128px;
+    grid-template-columns: minmax(120px, 1fr) auto;
     grid-template-rows: auto auto;
     padding: 8px 10px;
     gap: 8px;
@@ -213,6 +222,16 @@
     min-width: 0;
   }
 
+  .track-navigation {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 1px;
+  }
+
+  .track-select {
+    width: min(154px, 38vw);
+  }
+
   .song-title-input {
     width: 100%;
     min-width: 0;
@@ -220,7 +239,6 @@
 
   .playback-center {
     gap: 6px;
-    width: 128px;
   }
 
   .playback-right {
@@ -229,31 +247,14 @@
     gap: 8px;
   }
 
-  .transport-btn,
-  .transport-btn.transport-main {
-    width: 40px;
-    height: 40px;
-  }
-
-  .tempo-label,
-  .key-signature-label,
-  .time-signature-label {
-    font-size: 0;
-    gap: 3px;
-  }
-
-  .progress-track {
-    display: none;
+  .bar-counter {
+    min-width: 62px;
   }
 }
 
 @media (max-width: 420px) {
   .playback-bar {
-    grid-template-columns: minmax(0, calc(100% - 124px)) 116px;
-  }
-
-  .playback-center {
-    width: 116px;
+    grid-template-columns: minmax(100px, 1fr) auto;
   }
 
   .transport-btn,

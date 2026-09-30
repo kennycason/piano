@@ -56,6 +56,11 @@
   stroke: #dc2626 !important;
 }
 
+.score-container .note-name-labels {
+  pointer-events: none;
+  user-select: none;
+}
+
 .score-container.dragging-note,
 .score-container.dragging-note [data-note-id] {
   cursor: grabbing;

@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 2,
+  "id": "moonlight-sonata-simplified",
+  "title": "Moonlight Sonata - Simplified Opening",
+  "tempo": 60,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "keySignature": "E",
+  "tracks": [
+    {
+      "id": "moonlight-sonata-piano",
+      "name": "Piano",
+      "kind": "pitched",
+      "instrumentSound": "grand-piano",
+      "synthControls": {
+        "volume": 0.82,
+        "tone": 0.72,
+        "echo": 0.08,
+        "sustain": 0.48
+      },
+      "staffLayout": "grand",
+      "staffClefs": {
+        "treble": "treble",
+        "bass": "bass"
+      },
+      "voiceLabels": {
+        "treble": [
+          "Melody"
+        ],
+        "bass": [
+          "Arpeggio"
+        ]
+      },
+      "measures": [
+    {
+      "treble": [
+        {
+          "id": "m1-rh-1",
+          "keys": [
+            "e/4"
+          ],
+          "duration": "q",
+          "dynamic": "p"
+        },
+        {
+          "id": "m1-rh-2",
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q",
+          "dynamic": "p"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m1-lh-1",
+          "keys": [
+            "c#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m2-rh-1",
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q",
+          "dynamic": "p"
+        },
+        {
+          "id": "m2-rh-2",
+          "keys": [
+            "a/3"
+          ],
+          "duration": "q",
+          "dynamic": "p"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m2-lh-1",
+          "keys": [
+            "g#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m3-rh-1",
+          "keys": [
+            "a/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        },
+        {
+          "id": "m3-rh-2",
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m3-lh-1",
+          "keys": [
+            "f#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m4-rh-1",
+          "keys": [
+            "c/4"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        },
+        {
+          "id": "m4-rh-2",
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m4-lh-1",
+          "keys": [
+            "e/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m5-rh-1",
+          "keys": [
+            "a/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        },
+        {
+          "id": "m5-rh-2",
+          "keys": [
+            "g#/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m5-lh-1",
+          "keys": [
+            "c#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m6-rh-1",
+          "keys": [
+            "f/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        },
+        {
+          "id": "m6-rh-2",
+          "keys": [
+            "e/3"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m6-lh-1",
+          "keys": [
+            "g#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m7-rh-1",
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        },
+        {
+          "id": "m7-rh-2",
+          "keys": [
+            "c/4"
+          ],
+          "duration": "q",
+          "dynamic": "mp"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m7-lh-1",
+          "keys": [
+            "f#/2"
+          ],
+          "duration": "h",
+          "articulations": ["staccato"]
+        }
+      ]
+    },
+    {
+      "treble": [
+        {
+          "id": "m8-rh-1",
+          "keys": [
+            "b/3"
+          ],
+          "duration": "w"
+        }
+      ],
+      "bass": [
+        {
+          "id": "m8-lh-1",
+          "keys": [
+            "c#/2"
+          ],
+          "duration": "w",
+          "articulations": ["staccato"]
+        }
+      ]
+    }
+
+      ]
+    }
+  ],
+  "createdAt": 1790716132475,
+  "updatedAt": 1790718540950
+}

@@ -15,6 +15,7 @@ The editor now has a tested local-first core, versioned storage, responsive edit
 - Rendered pedal markings plus pedal and fermata playback behavior
 - Sustained score/piano highlights, playback progress, and score-following cursor
 - MIDI import with sixteenth-note quantization, chord detection, staff splitting, overlapping voice preservation, and import warnings
+- First-class MIDI tracks with top-bar navigation, per-track notation/instrument metadata, mute/solo, ensemble playback, active-track highlighting, and editable percussion
 
 ## P0 — confidence and data safety
 
@@ -33,7 +34,7 @@ The editor now has a tested local-first core, versioned storage, responsive edit
 ## P2 — playback and practice
 
 - Add play-from-selection and make the existing playback cursor seekable.
-- Add metronome, count-in, loop-range controls, and per-hand mute/solo.
+- Add metronome, count-in, loop-range controls, and per-hand mute/solo within a track.
 - Make tempo changes during playback deterministic.
 - Support repeat endings, D.C./D.S., coda, and more complete score navigation.
 - Add detailed sampled-audio loading progress.
@@ -54,4 +55,5 @@ The editor now has a tested local-first core, versioned storage, responsive edit
 - Empty portions of measures are visually blank rather than engraved with rests.
 - Chords spanning both clefs are assigned to a single clef based on their lowest note.
 - Pausing releases sustained notes; resuming continues at the paused score position rather than retriggering those held notes.
-- MIDI import quantizes to sixteenth notes and uses the first tempo, meter, and key signature; later changes and percussion are reported but not imported.
+- MIDI import quantizes to sixteenth notes and uses the first tempo, meter, and key signature; later changes are reported but not imported.
+- General MIDI program families and percussion are mapped to evolving synthesized approximations rather than exact hardware/sample-bank sounds.

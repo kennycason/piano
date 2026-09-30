@@ -23,21 +23,22 @@ describe('MIDI conversion', () => {
     expect(song.title).toBe('Import Test');
     expect(song.tempo).toBe(96);
     expect(song.keySignature).toBe('G');
-    expect(song.staffLayout).toBe('grand');
-    expect(song.measures).toHaveLength(2);
+    expect(song.tracks).toHaveLength(2);
+    expect(song.tracks[0].staffLayout).toBe('treble-only');
+    expect(song.tracks[0].measures).toHaveLength(2);
     expect(importedTrackCount).toBe(2);
     expect(warnings.some((warning) => warning.includes('sixteenth'))).toBe(true);
 
-    const firstChord = song.measures[0].treble.find((note) => !note.isRest);
+    const firstChord = song.tracks[0].measures[0].treble.find((note) => !note.isRest);
     expect(firstChord?.keys).toEqual(['e/4', 'g/4']);
-    const finalFirstBarNote = song.measures[0].treble.at(-1);
-    const firstSecondBarNote = song.measures[1].treble[0];
+    const finalFirstBarNote = song.tracks[0].measures[0].treble.at(-1);
+    const firstSecondBarNote = song.tracks[0].measures[1].treble[0];
     expect(finalFirstBarNote?.keys).toEqual(['f/4']);
     expect(finalFirstBarNote?.accidentals).toEqual(['#']);
     expect(finalFirstBarNote?.tieToNext).toBe(true);
     expect(firstSecondBarNote.keys).toEqual(['f/4']);
     expect(firstSecondBarNote.tieToNext).toBeUndefined();
-    expect(song.measures[0].bass.some((note) => !note.isRest)).toBe(true);
+    expect(song.tracks[1].measures[0].bass.some((note) => !note.isRest)).toBe(true);
   });
 
   it('keeps overlapping notes with different lengths as independent voices', () => {
@@ -50,12 +51,9 @@ describe('MIDI conversion', () => {
 
     const { song, warnings } = convertMidiToSong(midi);
 
-    expect(getMeasureVoices(song.measures[0], 'treble')).toHaveLength(2);
-    expect(song.voiceLabels?.treble).toEqual([
-      'Strings · voice 1',
-      'Strings · voice 2',
-    ]);
-    expect(song.measures[0].additionalTrebleVoices?.[0][0].isSpacer).toBe(true);
+    expect(getMeasureVoices(song.tracks[0].measures[0], 'treble')).toHaveLength(2);
+    expect(song.tracks[0].voiceLabels?.treble).toEqual(['Voice 1', 'Voice 2']);
+    expect(song.tracks[0].measures[0].additionalTrebleVoices?.[0][0].isSpacer).toBe(true);
     expect(warnings.some((warning) => warning.includes('independent staff voices'))).toBe(true);
   });
 
@@ -68,5 +66,24 @@ describe('MIDI conversion', () => {
 
     expect(song.keySignature).toBe('C');
     expect(warnings.some((warning) => warning.includes('relative-major'))).toBe(true);
+  });
+
+  it('imports percussion as an editable drum track', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    track.channel = 9;
+    track.instrument.number = 0;
+    track.name = 'Drums';
+    track.addNote({ midi: 36, ticks: 0, durationTicks: 1 });
+    track.addNote({ midi: 42, ticks: 0, durationTicks: 1 });
+
+    const { song, importedTrackCount } = convertMidiToSong(midi);
+    const drums = song.tracks[0];
+
+    expect(importedTrackCount).toBe(1);
+    expect(drums.kind).toBe('percussion');
+    expect(drums.instrumentSound).toBe('drum-kit');
+    expect(drums.staffClefs?.treble).toBe('percussion');
+    expect(drums.measures[0].treble[0].drumMidi).toEqual([36, 42]);
   });
 });

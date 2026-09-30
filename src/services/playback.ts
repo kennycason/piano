@@ -1,4 +1,15 @@
-import type { Song, Dynamic, NoteEntry, StaffClef } from '../models/song';
+import {
+  DEFAULT_TRACK_SYNTH_CONTROLS,
+  midiToPianoKey,
+  pianoKeyToMidi,
+  type Dynamic,
+  type InstrumentSound,
+  type NoteEntry,
+  type Song,
+  type SongTrack,
+  type StaffClef,
+  type SynthControls,
+} from '../models/song';
 import {
   getKeySignatureAccidental,
   getMeasureCapacity,
@@ -15,28 +26,23 @@ const dynamicToVelocity: Record<Dynamic, number> = {
   ff: 0.95,
 };
 
-export type InstrumentSound = 'grand-piano' | 'electric-keys' | 'warm-pad' | 'music-box';
+export type { InstrumentSound, SynthControls } from '../models/song';
 
 export const INSTRUMENT_OPTIONS: ReadonlyArray<{ value: InstrumentSound; label: string }> = [
   { value: 'grand-piano', label: 'Grand Piano' },
   { value: 'electric-keys', label: 'Electric Keys' },
   { value: 'warm-pad', label: 'Warm Pad' },
   { value: 'music-box', label: 'Music Box' },
+  { value: 'string-ensemble', label: 'String Ensemble' },
+  { value: 'choir-aahs', label: 'Choir Aahs' },
+  { value: 'synth-lead', label: 'Synth Lead' },
+  { value: 'synth-brass', label: 'Synth Brass' },
+  { value: 'guitar', label: 'Guitar' },
+  { value: 'bass', label: 'Bass' },
+  { value: 'organ', label: 'Organ' },
+  { value: 'drum-kit', label: 'Drum Kit' },
 ];
-
-export interface SynthControls {
-  volume: number;
-  tone: number;
-  echo: number;
-  sustain: number;
-}
-
-export const DEFAULT_SYNTH_CONTROLS: SynthControls = {
-  volume: 0.82,
-  tone: 0.72,
-  echo: 0.08,
-  sustain: 0.48,
-};
+export const DEFAULT_SYNTH_CONTROLS = DEFAULT_TRACK_SYNTH_CONTROLS;
 
 export interface PlaybackCursorState {
   measureIdx: number;
@@ -59,7 +65,12 @@ interface PlaybackOutput {
   releaseAll(time?: number): unknown;
 }
 
+interface DrumPlaybackOutput extends PlaybackOutput {
+  triggerDrums(midi: number[], time: number, velocity: number): void;
+}
+
 interface VisualStart {
+  trackId: string;
   noteId: string;
   measureIdx: number;
   pianoKeys: string[];
@@ -67,6 +78,7 @@ interface VisualStart {
 }
 
 interface VisualStop {
+  trackId: string;
   noteId?: string;
   pianoKeys: string[];
 }
@@ -114,7 +126,7 @@ function durationToSeconds(duration: string, tempo: number, dotted?: boolean): n
   return durationInSeconds;
 }
 
-export function getPlaybackOrder(song: Song): number[] {
+export function getPlaybackOrder(song: Pick<SongTrack, 'measures'>): number[] {
   const order: number[] = [];
   let repeatStart = 0;
 
@@ -141,15 +153,21 @@ export class PlaybackEngine {
   private samplerPromise: Promise<PlaybackOutput> | null = null;
   private samplerRetryAfter = 0;
   private fallbackSound: InstrumentSound | null = null;
-  private synths = new Map<Exclude<InstrumentSound, 'grand-piano'>, PlaybackOutput>();
+  private synths = new Map<Exclude<InstrumentSound, 'grand-piano' | 'drum-kit'>, PlaybackOutput>();
+  private drumKit: DrumPlaybackOutput | null = null;
   private masterFilter: import('tone').Filter | null = null;
   private masterDelay: import('tone').FeedbackDelay | null = null;
   private masterVolume: import('tone').Volume | null = null;
   private controls: SynthControls = { ...DEFAULT_SYNTH_CONTROLS };
   private activeOutput: PlaybackOutput | null = null;
+  private activeOutputs = new Set<PlaybackOutput>();
   private state: 'stopped' | 'playing' | 'paused' = 'stopped';
   private loopEnabled = false;
   private loopEnd = 0;
+  private visualTrackId: string | null = null;
+  private visualStateVersion = 0;
+  private soloActiveTrack = false;
+  private mutedTrackIds = new Set<string>();
   private instrumentRequest = 0;
   private generation = 0;
   private cursorSegments: Array<{
@@ -248,34 +266,104 @@ export class PlaybackEngine {
 
   private ensureSynth(
     Tone: ToneModule,
-    sound: Exclude<InstrumentSound, 'grand-piano'>,
+    sound: Exclude<InstrumentSound, 'grand-piano' | 'drum-kit'>,
   ): PlaybackOutput {
     const existing = this.synths.get(sound);
     if (existing) return existing;
 
-    const settings = sound === 'electric-keys'
-      ? {
+    const settings = sound === 'electric-keys' ? {
           oscillator: { type: 'triangle' as const },
           envelope: { attack: 0.008, decay: 0.35, sustain: 0.28, release: 1.1 },
-        }
-      : sound === 'warm-pad'
-        ? {
+        } : sound === 'warm-pad' ? {
             oscillator: { type: 'sine' as const },
             envelope: { attack: 0.18, decay: 0.45, sustain: 0.72, release: 1.8 },
-          }
-        : {
+          } : sound === 'string-ensemble' ? {
+            oscillator: { type: 'sawtooth6' as const },
+            envelope: { attack: 0.12, decay: 0.4, sustain: 0.68, release: 1.5 },
+          } : sound === 'choir-aahs' ? {
+            oscillator: { type: 'sine4' as const },
+            envelope: { attack: 0.22, decay: 0.45, sustain: 0.76, release: 1.7 },
+          } : sound === 'synth-lead' ? {
+            oscillator: { type: 'square4' as const },
+            envelope: { attack: 0.015, decay: 0.2, sustain: 0.52, release: 0.45 },
+          } : sound === 'synth-brass' ? {
+            oscillator: { type: 'sawtooth4' as const },
+            envelope: { attack: 0.06, decay: 0.28, sustain: 0.48, release: 0.7 },
+          } : sound === 'guitar' ? {
+            oscillator: { type: 'triangle8' as const },
+            envelope: { attack: 0.003, decay: 0.45, sustain: 0.15, release: 0.8 },
+          } : sound === 'bass' ? {
+            oscillator: { type: 'square2' as const },
+            envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.55 },
+          } : sound === 'organ' ? {
+            oscillator: { type: 'sine8' as const },
+            envelope: { attack: 0.02, decay: 0.08, sustain: 0.9, release: 0.35 },
+          } : {
             oscillator: { type: 'triangle8' as const },
             envelope: { attack: 0.002, decay: 0.7, sustain: 0.04, release: 1.4 },
           };
     const synth = new Tone.PolySynth(Tone.Synth, settings).connect(this.ensureMasterChain(Tone));
-    synth.volume.value = sound === 'warm-pad' ? -8 : sound === 'music-box' ? -5 : -6;
+    synth.volume.value = ['warm-pad', 'string-ensemble', 'choir-aahs'].includes(sound)
+      ? -10
+      : sound === 'music-box' ? -5 : -7;
     const output = synth as unknown as PlaybackOutput;
     this.synths.set(sound, output);
     return output;
   }
 
+  private ensureDrumKit(Tone: ToneModule): DrumPlaybackOutput {
+    if (this.drumKit) return this.drumKit;
+    const destination = this.ensureMasterChain(Tone);
+    const kick = new Tone.MembraneSynth({
+      pitchDecay: 0.05,
+      octaves: 7,
+      envelope: { attack: 0.001, decay: 0.32, sustain: 0, release: 0.08 },
+    }).connect(destination);
+    const tom = new Tone.MembraneSynth({
+      pitchDecay: 0.025,
+      octaves: 3,
+      envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.06 },
+    }).connect(destination);
+    const snare = new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.001, decay: 0.13, sustain: 0, release: 0.05 },
+    }).connect(destination);
+    const metal = new Tone.MetalSynth({
+      envelope: { attack: 0.001, decay: 0.08, release: 0.03 },
+      harmonicity: 5.1,
+      modulationIndex: 18,
+      resonance: 3200,
+      octaves: 1.5,
+    }).connect(destination);
+    this.drumKit = {
+      triggerAttackRelease: (_notes, _duration, time, velocity = 0.7) => {
+        snare.triggerAttackRelease(0.1, time, velocity);
+      },
+      releaseAll: () => undefined,
+      triggerDrums: (midi, time, velocity) => {
+        midi.forEach((pitch) => {
+          if (pitch <= 36) {
+            kick.triggerAttackRelease('C1', 0.18, time, velocity);
+          } else if ([38, 39, 40].includes(pitch)) {
+            snare.triggerAttackRelease(0.1, time, velocity);
+          } else if (pitch >= 41 && pitch <= 50 && ![42, 44, 46, 49].includes(pitch)) {
+            tom.triggerAttackRelease(Tone.Frequency(pitch - 12, 'midi').toNote(), 0.13, time, velocity);
+          } else {
+            const duration = [46, 49, 51, 52, 55, 57, 59].includes(pitch) ? 0.22 : 0.045;
+            metal.triggerAttackRelease(duration, time, velocity * 0.7);
+          }
+        });
+      },
+    };
+    return this.drumKit;
+  }
+
   private async ensureInstrument(sound: InstrumentSound): Promise<PlaybackOutput> {
     const Tone = await this.getTone();
+    if (sound === 'drum-kit') {
+      this.fallbackSound = null;
+      return this.ensureDrumKit(Tone);
+    }
     if (sound !== 'grand-piano') {
       this.fallbackSound = null;
       return this.ensureSynth(Tone, sound);
@@ -331,6 +419,14 @@ export class PlaybackEngine {
     const Tone = await this.getTone();
     const output = await this.ensureInstrument(sound);
     await Tone.start();
+    if (sound === 'drum-kit') {
+      (output as DrumPlaybackOutput).triggerDrums(
+        keys.map(pianoKeyToMidi),
+        Tone.now(),
+        0.72,
+      );
+      return;
+    }
     const toneNotes = keys.map((key) => vexKeyToNote(key, null, 'C'));
     const duration = 0.16 + this.controls.sustain * 1.35;
     output.triggerAttackRelease(toneNotes, duration, Tone.now(), 0.72);
@@ -340,20 +436,56 @@ export class PlaybackEngine {
   onActiveKeys(callback: ActiveKeysCallback) { this.onActiveKeysCallback = callback; }
   onStopped(callback: StopCallback) { this.onStopCallback = callback; }
 
+  setActiveTrack(trackId: string): void {
+    this.visualTrackId = trackId;
+    this.visualStateVersion++;
+    if (this.soloActiveTrack) this.activeOutputs.forEach((output) => output.releaseAll());
+    this.onNotesCallback?.(this.getCursorState()?.measureIdx ?? 0, []);
+    this.onActiveKeysCallback?.([]);
+  }
+
+  setSoloActiveTrack(enabled: boolean): void {
+    this.soloActiveTrack = enabled;
+    this.visualStateVersion++;
+    this.activeOutputs.forEach((output) => output.releaseAll());
+    this.onNotesCallback?.(this.getCursorState()?.measureIdx ?? 0, []);
+    this.onActiveKeysCallback?.([]);
+  }
+
+  setTrackMuted(trackId: string, muted: boolean): void {
+    if (muted) this.mutedTrackIds.add(trackId);
+    else this.mutedTrackIds.delete(trackId);
+    this.visualStateVersion++;
+    this.activeOutputs.forEach((output) => output.releaseAll());
+    this.onNotesCallback?.(this.getCursorState()?.measureIdx ?? 0, []);
+    this.onActiveKeysCallback?.([]);
+  }
+
   async play(
     song: Song,
-    sound: InstrumentSound,
+    activeTrackId: string,
     startMeasure = 0,
     loop = false,
+    soloActiveTrack = false,
   ): Promise<void> {
     if (this.state !== 'stopped') this.stop();
     const playGeneration = ++this.generation;
     const Tone = await this.getTone();
-    const output = await this.ensureInstrument(sound);
+    const activeTrack = song.tracks.find((track) => track.id === activeTrackId) ?? song.tracks[0];
+    this.visualTrackId = activeTrack.id;
+    this.visualStateVersion++;
+    this.soloActiveTrack = soloActiveTrack;
+    this.mutedTrackIds = new Set(song.tracks.filter((track) => track.muted).map((track) => track.id));
+    const tracksToPlay = song.tracks;
+    const outputEntries = await Promise.all(tracksToPlay.map(async (track) => (
+      [track.id, await this.ensureInstrument(track.instrumentSound)] as const
+    )));
+    const outputs = new Map(outputEntries);
     await Tone.start();
     if (playGeneration !== this.generation) return;
 
-    this.activeOutput = output;
+    this.activeOutputs = new Set(outputs.values());
+    this.activeOutput = outputs.get(activeTrack.id) ?? null;
     this.state = 'playing';
     const transport = Tone.getTransport();
     transport.stop();
@@ -367,16 +499,25 @@ export class PlaybackEngine {
       measureIdx: number;
       clef: StaffClef;
       voiceIdx: number;
+      track: SongTrack;
       startTime: number;
       duration: number;
     }
 
     let time = 0;
-    const playbackOrder = getPlaybackOrder(song).filter((measureIndex) => measureIndex >= startMeasure);
+    const longestTrack = [...song.tracks]
+      .sort((a, b) => b.measures.length - a.measures.length)[0] ?? activeTrack;
+    const conductorTrack = activeTrack.measures.length >= longestTrack.measures.length
+      ? activeTrack
+      : longestTrack;
+    const playbackOrder = getPlaybackOrder(conductorTrack)
+      .filter((measureIndex) => measureIndex >= startMeasure);
     const measureDuration = getMeasureCapacity(song.timeSignature) * (60 / song.tempo);
     const visualEvents = new Map<number, VisualEvent>();
     const activeKeyCounts = new Map<string, number>();
     const activeNoteIds = new Set<string>();
+    let visualStateTrackId = activeTrack.id;
+    let visualStateVersion = this.visualStateVersion;
     const notesByVoice = new Map<string, ScheduledNote[]>();
     const allScheduledNotes: ScheduledNote[] = [];
     this.cursorSegments = [];
@@ -391,37 +532,41 @@ export class PlaybackEngine {
     };
 
     for (const measureIndex of playbackOrder) {
-      const measure = song.measures[measureIndex];
       const rawNotes: Array<ScheduledNote & { rawStart: number; rawDuration: number }> = [];
       const fermataPoints = new Map<number, number>();
 
-      for (const clef of ['treble', 'bass'] as StaffClef[]) {
-        const voices = getMeasureVoices(measure, clef);
-        voices.forEach((notes, voiceIdx) => {
-          let rawStart = 0;
-          notes.forEach((note) => {
-            const rawDuration = durationToSeconds(note.duration, song.tempo, note.dotted);
-            rawNotes.push({
-              note,
-              measureIdx: measureIndex,
-              clef,
-              voiceIdx,
-              startTime: 0,
-              duration: rawDuration,
-              rawStart,
-              rawDuration,
+      tracksToPlay.forEach((track) => {
+        const measure = track.measures[measureIndex];
+        if (!measure) return;
+        for (const clef of ['treble', 'bass'] as StaffClef[]) {
+          const voices = getMeasureVoices(measure, clef);
+          voices.forEach((notes, voiceIdx) => {
+            let rawStart = 0;
+            notes.forEach((note) => {
+              const rawDuration = durationToSeconds(note.duration, song.tempo, note.dotted);
+              rawNotes.push({
+                note,
+                measureIdx: measureIndex,
+                clef,
+                voiceIdx,
+                track,
+                startTime: 0,
+                duration: rawDuration,
+                rawStart,
+                rawDuration,
+              });
+              if (note.articulations?.includes('fermata')) {
+                const fermataEnd = rawStart + rawDuration;
+                fermataPoints.set(
+                  fermataEnd,
+                  Math.max(fermataPoints.get(fermataEnd) ?? 0, rawDuration * 0.5),
+                );
+              }
+              rawStart += rawDuration;
             });
-            if (note.articulations?.includes('fermata')) {
-              const fermataEnd = rawStart + rawDuration;
-              fermataPoints.set(
-                fermataEnd,
-                Math.max(fermataPoints.get(fermataEnd) ?? 0, rawDuration * 0.5),
-              );
-            }
-            rawStart += rawDuration;
           });
-        });
-      }
+        }
+      });
 
       const sortedFermataPoints = [...fermataPoints.entries()].sort(([a], [b]) => a - b);
       const delayBefore = (rawStart: number) => sortedFermataPoints.reduce(
@@ -443,10 +588,11 @@ export class PlaybackEngine {
           measureIdx: raw.measureIdx,
           clef: raw.clef,
           voiceIdx: raw.voiceIdx,
+          track: raw.track,
           startTime: time + raw.rawStart + delayBefore(raw.rawStart),
           duration: raw.rawDuration * (hasFermata ? 1.5 : 1),
         };
-        const voiceKey = `${raw.clef}:${raw.voiceIdx}`;
+        const voiceKey = `${raw.track.id}:${raw.clef}:${raw.voiceIdx}`;
         const voiceNotes = notesByVoice.get(voiceKey) ?? [];
         voiceNotes.push(scheduled);
         notesByVoice.set(voiceKey, voiceNotes);
@@ -459,19 +605,26 @@ export class PlaybackEngine {
     // Pedal is global to the piano, not scoped to a staff voice. Build its
     // intervals first so every note that starts under the pedal can ring until
     // the matching release marker.
-    const pedalIntervals: Array<{ start: number; end: number }> = [];
-    let pedalStartTime: number | null = null;
-    [...allScheduledNotes]
-      .sort((a, b) => a.startTime - b.startTime)
-      .forEach((entry) => {
-        if (entry.note.pedalStart && pedalStartTime === null) pedalStartTime = entry.startTime;
-        if (entry.note.pedalEnd && pedalStartTime !== null) {
-          pedalIntervals.push({ start: pedalStartTime, end: entry.startTime + entry.duration });
-          pedalStartTime = null;
-        }
-      });
-    if (pedalStartTime !== null) pedalIntervals.push({ start: pedalStartTime, end: time });
-    const pedalReleaseFor = (startTime: number) => pedalIntervals.find((interval) => (
+    const pedalIntervals = new Map<string, Array<{ start: number; end: number }>>();
+    tracksToPlay.forEach((track) => {
+      const intervals: Array<{ start: number; end: number }> = [];
+      let pedalStartTime: number | null = null;
+      allScheduledNotes
+        .filter((entry) => entry.track.id === track.id)
+        .sort((a, b) => a.startTime - b.startTime)
+        .forEach((entry) => {
+          if (entry.note.pedalStart && pedalStartTime === null) pedalStartTime = entry.startTime;
+          if (entry.note.pedalEnd && pedalStartTime !== null) {
+            intervals.push({ start: pedalStartTime, end: entry.startTime + entry.duration });
+            pedalStartTime = null;
+          }
+        });
+      if (pedalStartTime !== null) intervals.push({ start: pedalStartTime, end: time });
+      pedalIntervals.set(track.id, intervals);
+    });
+    const pedalReleaseFor = (trackId: string, startTime: number) => (
+      pedalIntervals.get(trackId) ?? []
+    ).find((interval) => (
       startTime >= interval.start - 1e-9 && startTime < interval.end - 1e-9
     ))?.end;
 
@@ -482,6 +635,7 @@ export class PlaybackEngine {
         if (note.dynamic) currentVelocity = dynamicToVelocity[note.dynamic];
         const previous = notes[noteIndex - 1];
         const isTieContinuation = Boolean(
+          !note.drumMidi &&
           previous?.note.tieToNext &&
           notesHaveSamePitches(previous.note, note, song.keySignature),
         );
@@ -504,18 +658,24 @@ export class PlaybackEngine {
             : hasTenuto
               ? 0.98
               : 0.9;
-        const pedalRelease = pedalReleaseFor(entry.startTime);
+        const pedalRelease = pedalReleaseFor(entry.track.id, entry.startTime);
         const actualDuration = Math.max(
           tiedDuration * durationFactor,
           pedalRelease ? pedalRelease - entry.startTime : 0,
         );
-        const velocity = Math.min(1, currentVelocity * (hasAccent ? 1.18 : 1));
+        const velocity = Math.min(
+          1,
+          currentVelocity * (hasAccent ? 1.18 : 1) * Math.max(0.05, entry.track.synthControls.volume),
+        );
         const toneNotes = note.keys.map((key, index) => (
           vexKeyToNote(key, note.accidentals?.[index], song.keySignature)
         ));
-        const pianoKeys = toneNotes.map(toneNoteToPianoKey);
+        const pianoKeys = note.drumMidi
+          ? note.drumMidi.map(midiToPianoKey)
+          : toneNotes.map(toneNoteToPianoKey);
 
         eventAt(entry.startTime).starts.push({
+          trackId: entry.track.id,
           noteId: note.id,
           measureIdx: entry.measureIdx,
           pianoKeys: !note.isRest && !isTieContinuation ? pianoKeys : [],
@@ -526,18 +686,33 @@ export class PlaybackEngine {
           const visualEnd = pedalRelease
             ? Math.max(entry.startTime + entry.duration, pedalRelease)
             : entry.startTime + entry.duration;
-          eventAt(visualEnd).stops.push({ noteId: note.id, pianoKeys: [] });
+          eventAt(visualEnd).stops.push({
+            trackId: entry.track.id,
+            noteId: note.id,
+            pianoKeys: [],
+          });
         }
         if (!note.isRest && !isTieContinuation) {
-          eventAt(entry.startTime + actualDuration).stops.push({ pianoKeys });
+          eventAt(entry.startTime + actualDuration).stops.push({
+            trackId: entry.track.id,
+            pianoKeys,
+          });
           transport.schedule((scheduledTime) => {
             if (this.state !== 'playing') return;
-            this.activeOutput?.triggerAttackRelease(
-              toneNotes,
-              actualDuration,
-              scheduledTime,
-              velocity,
-            );
+            const shouldPlay = this.soloActiveTrack
+              ? entry.track.id === this.visualTrackId
+              : !this.mutedTrackIds.has(entry.track.id);
+            if (!shouldPlay) return;
+            const output = outputs.get(entry.track.id);
+            if (note.drumMidi) {
+              (output as DrumPlaybackOutput | undefined)?.triggerDrums(
+                note.drumMidi,
+                scheduledTime,
+                velocity,
+              );
+            } else {
+              output?.triggerAttackRelease(toneNotes, actualDuration, scheduledTime, velocity);
+            }
           }, entry.startTime);
         }
       });
@@ -552,7 +727,19 @@ export class PlaybackEngine {
           if (this.state !== 'playing') return;
           Tone.getDraw().schedule(() => {
             if (this.state !== 'playing' || playGeneration !== this.generation) return;
-            for (const stop of event.stops) {
+            const visualTrackId = this.visualTrackId;
+            if (
+              visualStateTrackId !== visualTrackId ||
+              visualStateVersion !== this.visualStateVersion
+            ) {
+              activeNoteIds.clear();
+              activeKeyCounts.clear();
+              visualStateTrackId = visualTrackId ?? '';
+              visualStateVersion = this.visualStateVersion;
+            }
+            const stops = event.stops.filter((stop) => stop.trackId === visualTrackId);
+            const starts = event.starts.filter((start) => start.trackId === visualTrackId);
+            for (const stop of stops) {
               if (stop.noteId) activeNoteIds.delete(stop.noteId);
               for (const key of stop.pianoKeys) {
                 const count = (activeKeyCounts.get(key) ?? 0) - 1;
@@ -560,17 +747,17 @@ export class PlaybackEngine {
                 else activeKeyCounts.delete(key);
               }
             }
-            for (const start of event.starts) {
+            for (const start of starts) {
               visualMeasureIdx = start.measureIdx;
               if (!start.isRest) activeNoteIds.add(start.noteId);
               for (const key of start.pianoKeys) {
                 activeKeyCounts.set(key, (activeKeyCounts.get(key) ?? 0) + 1);
               }
             }
-            if (event.stops.some((stop) => stop.pianoKeys.length > 0) || event.starts.some((start) => start.pianoKeys.length > 0)) {
+            if (stops.some((stop) => stop.pianoKeys.length > 0) || starts.some((start) => start.pianoKeys.length > 0)) {
               this.onActiveKeysCallback?.([...activeKeyCounts.keys()]);
             }
-            if (event.starts.length > 0 || event.stops.some((stop) => stop.noteId)) {
+            if (starts.length > 0 || stops.some((stop) => stop.noteId)) {
               this.onNotesCallback?.(visualMeasureIdx, [...activeNoteIds]);
             }
           }, scheduledTime);
@@ -612,7 +799,7 @@ export class PlaybackEngine {
     if (this.state !== 'playing' || !this.tone) return;
     this.state = 'paused';
     this.tone.getTransport().pause();
-    this.activeOutput?.releaseAll();
+    this.activeOutputs.forEach((output) => output.releaseAll());
     this.onActiveKeysCallback?.([]);
   }
 
@@ -637,7 +824,8 @@ export class PlaybackEngine {
     this.tone?.getTransport().stop();
     this.tone?.getTransport().cancel();
     if (this.tone) this.tone.getTransport().loop = false;
-    this.activeOutput?.releaseAll();
+    this.activeOutputs.forEach((output) => output.releaseAll());
+    this.activeOutputs.clear();
     this.onActiveKeysCallback?.([]);
     this.cursorSegments = [];
   }

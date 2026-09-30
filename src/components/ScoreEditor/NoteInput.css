@@ -227,6 +227,27 @@
   background: linear-gradient(180deg, #89b4fa 0%, #f38ba8 100%);
 }
 
+.percussion-keyboard .drum-unused {
+  opacity: 0.22;
+  cursor: default;
+}
+
+.percussion-keyboard .white-key-label,
+.percussion-keyboard .black-key-label {
+  max-height: 62%;
+  overflow: hidden;
+  color: #52525b;
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.percussion-keyboard .black-key-label {
+  color: #f4f4f5;
+}
+
 .piano-white-key.c-marker {
   border-bottom: 2px solid #f9e2af;
 }
@@ -289,6 +310,24 @@
 
 .piano-black-key.selected.playing {
   background: linear-gradient(180deg, #89b4fa, #f38ba8);
+}
+
+.black-key-label {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 4px;
+  color: #f4f4f5;
+  font-size: 6px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  user-select: none;
+  pointer-events: none;
+}
+
+.piano-black-key.selected .black-key-label,
+.piano-black-key.playing .black-key-label {
+  color: #181825;
 }
 
 @media (max-height: 760px) {

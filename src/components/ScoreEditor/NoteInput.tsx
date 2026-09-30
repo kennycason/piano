@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import type { Accidental, NoteEntry } from '../../models/song';
+import {
+  GENERAL_MIDI_DRUM_NAMES,
+  midiToPianoKey,
+  type Accidental,
+  type NoteEntry,
+  type TrackKind,
+} from '../../models/song';
 import {
   DEFAULT_SYNTH_CONTROLS,
   INSTRUMENT_OPTIONS,
@@ -25,6 +31,8 @@ interface NoteInputProps {
   onInstrumentSoundChange: (sound: InstrumentSound) => void;
   onSynthControlsChange: (controls: SynthControls) => void;
   onPreviewNotes: (keys: string[]) => void;
+  showAllNoteNames: boolean;
+  trackKind: TrackKind;
 }
 
 interface PianoKey {
@@ -115,17 +123,25 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   onInstrumentSoundChange,
   onSynthControlsChange,
   onPreviewNotes,
+  showAllNoteNames,
+  trackKind,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => (
     session?.mode === 'edit' && selectedNote && !selectedNote.isRest
-      ? new Set(selectedNote.keys.map((key, index) => (
-          toPianoKey(key, selectedNote.accidentals?.[index])
-        )))
+      ? new Set(selectedNote.drumMidi
+          ? selectedNote.drumMidi.map(midiToPianoKey)
+          : selectedNote.keys.map((key, index) => (
+              toPianoKey(key, selectedNote.accidentals?.[index])
+            )))
       : new Set()
   ));
   const [isChordMode, setIsChordMode] = useState(Boolean(session));
 
   const playingKeys = new Set(activePlaybackKeys);
+  const isPercussion = trackKind === 'percussion';
+  const availableInstruments = INSTRUMENT_OPTIONS.filter((option) => (
+    isPercussion ? option.value === 'drum-kit' : option.value !== 'drum-kit'
+  ));
 
   const toggleKey = (note: string) => {
     const next = new Set(selectedKeys);
@@ -187,7 +203,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
               value={instrumentSound}
               onChange={(event) => onInstrumentSoundChange(event.target.value as InstrumentSound)}
             >
-              {INSTRUMENT_OPTIONS.map((option) => (
+              {availableInstruments.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
@@ -255,16 +271,17 @@ export const NoteInput: React.FC<NoteInputProps> = ({
           )}
         </div>
       </div>
-      <div className="piano-keyboard">
+      <div className={`piano-keyboard ${isPercussion ? 'percussion-keyboard' : ''}`}>
         <div className="piano-keys-area">
           <div className="piano-white-keys">
             {WHITE_KEYS.map((key) => (
               <button
                 type="button"
                 key={key.note}
-                className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''}`}
+                className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
                 aria-pressed={selectedKeys.has(key.note)}
-                aria-label={key.label}
+                disabled={isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi]}
+                aria-label={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
                 onPointerDown={(event) => {
                   if (event.button === 0) onPreviewNotes([key.note]);
                 }}
@@ -274,10 +291,14 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                   }
                   else handleQuickAdd(key);
                 }}
-                title={key.label}
+                title={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
               >
-                {(key.note.startsWith('c/') || key.midi === 21) && (
-                  <span className="white-key-label">{key.label}</span>
+                {(isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] : (showAllNoteNames || key.note.startsWith('c/') || key.midi === 21)) && (
+                  <span className="white-key-label">
+                    {isPercussion
+                      ? GENERAL_MIDI_DRUM_NAMES[key.midi]
+                      : showAllNoteNames ? key.label.replace(/-?\d+$/, '') : key.label}
+                  </span>
                 )}
               </button>
             ))}
@@ -288,10 +309,11 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                   <button
                     type="button"
                     key={key.note}
-                  className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''}`}
+                  className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
                   style={{ left: `${(key.whiteBoundary / TOTAL_WHITE_KEYS) * 100}%` }}
                   aria-pressed={selectedKeys.has(key.note)}
-                  aria-label={key.label}
+                  disabled={isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi]}
+                  aria-label={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
                   onPointerDown={(event) => {
                     if (event.button === 0) onPreviewNotes([key.note]);
                   }}
@@ -301,8 +323,16 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                     }
                     else handleQuickAdd(key);
                   }}
-                  title={key.label}
-                />
+                  title={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
+                >
+                  {(isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] : showAllNoteNames) && (
+                    <span className="black-key-label">
+                      {isPercussion
+                        ? GENERAL_MIDI_DRUM_NAMES[key.midi]
+                        : key.label.replace(/-?\d+$/, '').replace('#', '♯')}
+                    </span>
+                  )}
+                </button>
               );
             })}
           </div>

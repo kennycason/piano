@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import type { Song } from '../../models/song';
+import { getSongMeasureCount, type Song } from '../../models/song';
 import './SongManager.css';
 
 interface SongManagerProps {
@@ -66,7 +66,7 @@ export const SongManager: React.FC<SongManagerProps> = ({
             >
               <span className="song-item-title">{song.title || 'Untitled'}</span>
               <span className="song-item-info">
-                {song.measures.length} bars · {song.tempo} BPM
+                {getSongMeasureCount(song)} bars · {song.tracks.length} track{song.tracks.length === 1 ? '' : 's'} · {song.tempo} BPM
               </span>
             </button>
             <button

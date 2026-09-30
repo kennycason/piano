@@ -2,9 +2,39 @@ export type NoteDuration = 'w' | 'h' | 'q' | '8' | '16';
 export type Accidental = '#' | 'b' | 'n';
 export type Dynamic = 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff';
 export type StaffClef = 'treble' | 'bass';
+export type DisplayClef = StaffClef | 'percussion';
 export type StaffLayout = 'grand' | 'treble-only' | 'bass-only';
 export type SlurPlacement = 'above' | 'below';
-export const CURRENT_SONG_SCHEMA_VERSION = 1;
+export type TrackKind = 'pitched' | 'percussion';
+export type InstrumentSound =
+  | 'grand-piano'
+  | 'electric-keys'
+  | 'warm-pad'
+  | 'music-box'
+  | 'string-ensemble'
+  | 'choir-aahs'
+  | 'synth-lead'
+  | 'synth-brass'
+  | 'guitar'
+  | 'bass'
+  | 'organ'
+  | 'drum-kit';
+
+export interface SynthControls {
+  volume: number;
+  tone: number;
+  echo: number;
+  sustain: number;
+}
+
+export const DEFAULT_TRACK_SYNTH_CONTROLS: SynthControls = {
+  volume: 0.82,
+  tone: 0.72,
+  echo: 0.08,
+  sustain: 0.48,
+};
+
+export const CURRENT_SONG_SCHEMA_VERSION = 2;
 export const KEY_SIGNATURES = [
   'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#',
   'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb',
@@ -38,6 +68,8 @@ export interface NoteEntry {
   slurEnd?: boolean;
   pedalStart?: boolean;
   pedalEnd?: boolean;
+  /** General MIDI percussion pitches corresponding to `keys` on a percussion staff. */
+  drumMidi?: number[];
 }
 
 export interface Measure {
@@ -51,29 +83,92 @@ export interface Measure {
   repeatEnd?: boolean;
 }
 
+export interface TrackMidiMetadata {
+  channel: number;
+  program: number;
+  instrumentName: string;
+  family: string;
+}
+
+export interface SongTrack {
+  id: string;
+  name: string;
+  kind: TrackKind;
+  instrumentSound: InstrumentSound;
+  synthControls: SynthControls;
+  midi?: TrackMidiMetadata;
+  muted?: boolean;
+  staffLayout?: StaffLayout;
+  /** Override either displayed clef while retaining upper/lower staff storage. */
+  staffClefs?: Partial<Record<StaffClef, DisplayClef>>;
+  /** Optional labels for each voice, ordered primary voice first. */
+  voiceLabels?: Partial<Record<StaffClef, string[]>>;
+  measures: Measure[];
+}
+
 export interface Song {
-  schemaVersion: number;
+  schemaVersion: 2;
   id: string;
   title: string;
   tempo: number;
   timeSignature: [number, number];
   keySignature: string;       // e.g. "C", "G", "F", "Bb"
-  /** Defaults to a traditional two-staff grand staff for older song files. */
-  staffLayout?: StaffLayout;
-  /** Override either displayed clef while retaining upper/lower staff storage. */
-  staffClefs?: Partial<Record<StaffClef, StaffClef>>;
-  /** Optional labels for each voice, ordered primary voice first. */
-  voiceLabels?: Partial<Record<StaffClef, string[]>>;
-  measures: Measure[];
+  tracks: SongTrack[];
   createdAt: number;
   updatedAt: number;
 }
+
+/** A track combined with the song-wide fields expected by the score editor. */
+export type EditableScore = Omit<Song, 'tracks'> & Omit<SongTrack, 'id'> & {
+  trackId: string;
+};
 
 export function createId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }
+
+const MIDI_SHARP_NAMES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+
+export function midiToPianoKey(midi: number): string {
+  return `${MIDI_SHARP_NAMES[((midi % 12) + 12) % 12]}/${Math.floor(midi / 12) - 1}`;
+}
+
+export function pianoKeyToMidi(key: string): number {
+  const [name, octaveText] = key.split('/');
+  const pitchClasses: Record<string, number> = {
+    c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
+  };
+  return (Number(octaveText) + 1) * 12
+    + (pitchClasses[name[0]] ?? 0)
+    + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0);
+}
+
+export function drumMidiToStaffKey(midi: number): string {
+  const positions: Record<number, string> = {
+    35: 'f/4', 36: 'f/4',
+    37: 'b/4', 38: 'c/5', 39: 'd/5', 40: 'c/5',
+    41: 'a/4', 43: 'b/4', 45: 'd/5', 47: 'e/5', 48: 'f/5', 50: 'a/5',
+    42: 'g/5', 44: 'f/5', 46: 'a/5',
+    49: 'f/6', 51: 'g/5', 52: 'g/6', 53: 'f/6', 55: 'a/6', 57: 'b/6', 59: 'b/5',
+  };
+  return positions[midi] ?? 'c/5';
+}
+
+export const GENERAL_MIDI_DRUM_NAMES: Readonly<Record<number, string>> = {
+  35: 'Bass Drum', 36: 'Kick', 37: 'Side Stick', 38: 'Snare', 39: 'Clap',
+  40: 'Elec. Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat', 43: 'High Floor Tom',
+  44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat', 47: 'Low-Mid Tom',
+  48: 'Hi-Mid Tom', 49: 'Crash', 50: 'High Tom', 51: 'Ride', 52: 'China Cymbal',
+  53: 'Ride Bell', 54: 'Tambourine', 55: 'Splash', 56: 'Cowbell', 57: 'Crash 2',
+  58: 'Vibraslap', 59: 'Ride 2', 60: 'High Bongo', 61: 'Low Bongo',
+  62: 'Mute Conga', 63: 'Open Conga', 64: 'Low Conga', 65: 'High Timbale',
+  66: 'Low Timbale', 67: 'High Agogo', 68: 'Low Agogo', 69: 'Cabasa',
+  70: 'Maracas', 71: 'Short Whistle', 72: 'Long Whistle', 73: 'Short Guiro',
+  74: 'Long Guiro', 75: 'Claves', 76: 'High Woodblock', 77: 'Low Woodblock',
+  78: 'Mute Cuica', 79: 'Open Cuica', 80: 'Mute Triangle', 81: 'Open Triangle',
+};
 
 export function createDefaultNote(duration: NoteDuration = 'q', clef: StaffClef = 'treble'): NoteEntry {
   return {
@@ -88,6 +183,79 @@ export function createDefaultMeasure(): Measure {
     treble: [],
     bass: [],
   };
+}
+
+export function createDefaultTrack(name = 'Piano'): SongTrack {
+  return {
+    id: createId(),
+    name,
+    kind: 'pitched',
+    instrumentSound: 'grand-piano',
+    synthControls: { ...DEFAULT_TRACK_SYNTH_CONTROLS },
+    measures: [
+      createDefaultMeasure(),
+      createDefaultMeasure(),
+      createDefaultMeasure(),
+      createDefaultMeasure(),
+    ],
+  };
+}
+
+export function getSongTrack(song: Song, trackId?: string | null): SongTrack {
+  return song.tracks.find((track) => track.id === trackId) ?? song.tracks[0];
+}
+
+export function createEditableScore(song: Song, trackId?: string | null): EditableScore {
+  const track = getSongTrack(song, trackId);
+  return {
+    schemaVersion: song.schemaVersion,
+    id: song.id,
+    title: song.title,
+    tempo: song.tempo,
+    timeSignature: song.timeSignature,
+    keySignature: song.keySignature,
+    createdAt: song.createdAt,
+    updatedAt: song.updatedAt,
+    trackId: track.id,
+    name: track.name,
+    kind: track.kind,
+    instrumentSound: track.instrumentSound,
+    synthControls: track.synthControls,
+    midi: track.midi,
+    muted: track.muted,
+    staffLayout: track.staffLayout,
+    staffClefs: track.staffClefs,
+    voiceLabels: track.voiceLabels,
+    measures: track.measures,
+  };
+}
+
+export function replaceSongTrackFromScore(song: Song, score: EditableScore): Song {
+  const replacement: SongTrack = {
+    id: score.trackId,
+    name: score.name,
+    kind: score.kind,
+    instrumentSound: score.instrumentSound,
+    synthControls: score.synthControls,
+    midi: score.midi,
+    muted: score.muted,
+    staffLayout: score.staffLayout,
+    staffClefs: score.staffClefs,
+    voiceLabels: score.voiceLabels,
+    measures: score.measures,
+  };
+  return {
+    ...song,
+    title: score.title,
+    tempo: score.tempo,
+    timeSignature: score.timeSignature,
+    keySignature: score.keySignature,
+    tracks: song.tracks.map((track) => track.id === score.trackId ? replacement : track),
+  };
+}
+
+export function getSongMeasureCount(song: Song): number {
+  return Math.max(0, ...song.tracks.map((track) => track.measures.length));
 }
 
 export function getMeasureVoices(measure: Measure, clef: StaffClef): NoteEntry[][] {
@@ -313,7 +481,7 @@ export function createDefaultSong(): Song {
     tempo: 120,
     timeSignature: [4, 4],
     keySignature: 'C',
-    measures: [createDefaultMeasure(), createDefaultMeasure(), createDefaultMeasure(), createDefaultMeasure()],
+    tracks: [createDefaultTrack()],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };

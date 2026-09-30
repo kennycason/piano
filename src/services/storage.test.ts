@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import marinesHymn from '../../songs/marines-hymn.json';
+import lowerNorfair from '../../songs/lower-norfair.json';
+import moonlightSonata from '../../songs/moonlight-sonata.json';
 import { createDefaultSong, CURRENT_SONG_SCHEMA_VERSION } from '../models/song';
 import { saveSong, validateAndMigrateSong } from './storage';
 
@@ -12,8 +14,18 @@ describe('song validation and migration', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('migrates legacy songs that predate schemaVersion', () => {
-    const legacy = createDefaultSong() as Partial<ReturnType<typeof createDefaultSong>>;
-    delete legacy.schemaVersion;
+    const current = createDefaultSong();
+    const track = current.tracks[0];
+    const legacy = {
+      id: current.id,
+      title: current.title,
+      tempo: current.tempo,
+      timeSignature: current.timeSignature,
+      keySignature: current.keySignature,
+      measures: track.measures,
+      createdAt: current.createdAt,
+      updatedAt: current.updatedAt,
+    };
     const result = validateAndMigrateSong(legacy);
     expect(result.errors).toEqual([]);
     expect(result.migrated).toBe(true);
@@ -23,7 +35,7 @@ describe('song validation and migration', () => {
   it('accepts the full Marines Hymn fixture with its cross-measure ties', () => {
     const result = validateAndMigrateSong(marinesHymn);
     expect(result.errors).toEqual([]);
-    expect(result.song?.measures).toHaveLength(25);
+    expect(result.song?.tracks[0].measures).toHaveLength(25);
   });
 
   it('keeps every checked-in song fixture valid', () => {
@@ -33,10 +45,23 @@ describe('song validation and migration', () => {
     });
   });
 
+  it('keeps the bundled multitrack and corrected Moonlight projects intact', () => {
+    const lower = validateAndMigrateSong(lowerNorfair);
+    const moonlight = validateAndMigrateSong(moonlightSonata);
+
+    expect(lower.song?.tracks.map((track) => track.name)).toEqual([
+      'Strings', 'Drums', 'Ahhs', 'Lead',
+    ]);
+    expect(lower.song?.tracks.find((track) => track.kind === 'percussion')?.instrumentSound)
+      .toBe('drum-kit');
+    expect(moonlight.song?.keySignature).toBe('E');
+    expect(moonlight.song?.tracks[0].staffClefs?.treble).toBe('treble');
+  });
+
   it('rejects unsupported keys, overflowing voices, and duplicate note ids', () => {
     const invalid = createDefaultSong();
     invalid.keySignature = 'H';
-    invalid.measures[0].treble = Array.from({ length: 5 }, () => ({
+    invalid.tracks[0].measures[0].treble = Array.from({ length: 5 }, () => ({
       id: 'duplicate', keys: ['c/4'], duration: 'q' as const,
     }));
     const result = validateAndMigrateSong(invalid);

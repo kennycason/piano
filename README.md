@@ -29,18 +29,20 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 - Standard key signatures and per-rest vertical positioning
 - Correct measure-scoped accidentals plus ties and slurs across bar and system boundaries
 - Pedal markers, repeat markers, fermatas, and measure management
-- A playable keyboard synth with four presets plus volume, tone, echo, and note-length controls
+- A playable keyboard synth with 12 pitched/percussion presets plus volume, tone, echo, and note-length controls
 - Playback with pause, resume, seamless whole-song looping, repeats, sustained pedal, fermata timing, dynamics, articulations, and a moving score cursor
 - Simultaneous score-note highlighting across staves plus live playback lighting on the piano keys
+- Two optional pitch-letter views: letters centered inside noteheads, or high-contrast note/chord labels below; either mode also labels every key on the piano
 - Note, chord, rest, and whole-bar copy/paste with undo/redo and keyboard shortcuts
 - Multiple locally saved songs with versioned, validated JSON import/export and recovery-safe saves
-- Automatic MIDI import with chord, hand/staff, overlapping-voice, tempo, meter, and key mapping
+- Track-aware MIDI import with chord, hand/staff, overlapping-voice, percussion, General MIDI instrument, tempo, meter, and key mapping
+- Multitrack score navigation with per-track notation, sounds, keyboard lighting, mute/solo, and full-arrangement playback
 - Responsive touch-friendly mobile editing, keyboard-accessible score actions, and non-blocking song deletion with undo
-- Six bundled, editable sample scores for learning and exploring the editor
+- Eight bundled, editable sample projects for learning and exploring the editor
 
-Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; if they are unavailable, playback falls back to Electric Keys. The three synthesized sounds do not require sample downloads.
+Songs, tracks, and each track's selected sound controls are stored in browser `localStorage`. The starter library includes Lower Norfair as the first-run multitrack example, Moonlight Sonata, Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. Returning visitors keep their previously selected project. There is no account, server, or cloud sync yet. Grand-piano samples are fetched from the Tone.js Salamander sample host; if they are unavailable, playback falls back to Electric Keys. Synthesized instruments and drums do not require sample downloads.
 
-MIDI files are converted into ordinary editable score notes and are never played directly after import. They are quantized to the nearest sixteenth note; simultaneous notes of equal length become chords, pitches below middle C are assigned to bass, and overlapping parts are retained as independent voices. Secondary-voice timing gaps remain in the score as invisible spacing rests, avoiding piles of redundant rest glyphs without changing playback. The import summary calls out tempo, key, meter, percussion, or quantization compromises; JSON remains the lossless project format.
+MIDI files are converted into ordinary editable project tracks and are never played directly after import. Every non-empty MIDI track remains independently navigable, retains its channel/program metadata, receives a matching starter sound, and participates in ensemble playback. Percussion becomes an editable percussion-clef score with General MIDI drum labels and synthesized drum sounds. Notes are quantized to the nearest sixteenth; simultaneous notes of equal length become chords, pitched notes below middle C are assigned to bass, and overlaps become independent voices. Secondary-voice timing gaps remain as invisible spacing rests. The import summary calls out tempo, key, meter, or quantization compromises; JSON remains the lossless project format.
 
 ## Run locally
 
@@ -85,6 +87,8 @@ The unit suite covers score timing and accidentals, cross-bar/chord ties, repeat
 ## Editing model
 
 New songs begin with four empty measures. Click an empty part of a bar to select it; piano input then stays in that bar. Adding a new bar selects it immediately. With no bar or note selected, piano input begins in bar 1. Automatic advance only applies when there is no explicit bar target.
+
+For multitrack projects, use the track picker in the top bar to switch the visible score and keyboard sound. **Solo** plays only the visible track; **Mute** removes it from ensemble playback. Playback normally performs every unmuted track while score and keyboard highlights follow the visible track.
 
 To add a slur, click the arc tool and then select its starting and ending notes. Selecting the same pair again removes the slur; press `Escape` to cancel partway through.
 

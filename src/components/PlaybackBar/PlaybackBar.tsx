@@ -1,51 +1,47 @@
 import React from 'react';
-import { KEY_SIGNATURES } from '../../models/song';
 import './PlaybackBar.css';
 
 interface PlaybackBarProps {
   songId: string;
   playState: 'stopped' | 'loading' | 'playing' | 'paused';
-  tempo: number;
-  timeSignature: [number, number];
-  keySignature: string;
   loopEnabled: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
   onLoopToggle: () => void;
-  onTempoChange: (tempo: number) => void;
-  onTimeSignatureChange: (timeSignature: [number, number]) => void;
-  onKeySignatureChange: (keySignature: string) => void;
   songTitle: string;
   onTitleChange: (title: string) => void;
   currentMeasure: number;
   totalMeasures: number;
-  playbackProgress: number;
+  tracks: ReadonlyArray<{ id: string; name: string; kind: 'pitched' | 'percussion'; muted?: boolean }>;
+  activeTrackId: string;
+  soloActiveTrack: boolean;
+  onTrackChange: (trackId: string) => void;
+  onSoloActiveTrackToggle: () => void;
+  onActiveTrackMuteToggle: () => void;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   songId,
   playState,
-  tempo,
-  timeSignature,
-  keySignature,
   loopEnabled,
   onPlay,
   onPause,
   onStop,
   onLoopToggle,
-  onTempoChange,
-  onTimeSignatureChange,
-  onKeySignatureChange,
   songTitle,
   onTitleChange,
   currentMeasure,
   totalMeasures,
-  playbackProgress,
+  tracks,
+  activeTrackId,
+  soloActiveTrack,
+  onTrackChange,
+  onSoloActiveTrackToggle,
+  onActiveTrackMuteToggle,
 }) => {
-  const progress = Math.max(0, Math.min(100, playbackProgress * 100));
-  const currentMeter = `${timeSignature[0]}/${timeSignature[1]}`;
-  const timeSignatureOptions = ['2/4', '3/4', '4/4', '6/8', '9/8', '12/8'];
+  const activeTrackIndex = Math.max(0, tracks.findIndex((track) => track.id === activeTrackId));
+  const activeTrack = tracks[activeTrackIndex] ?? tracks[0];
 
   return (
     <div className="playback-bar">
@@ -112,75 +108,49 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
             </svg>
           </button>
         </div>
-        {/* Always mounted so transport controls never shift between states. */}
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-          <span className="progress-text">
-            {playState === 'loading' ? 'Loading piano…' : `Bar ${currentMeasure + 1} / ${totalMeasures}`}
-          </span>
+        <div className="bar-counter" aria-live="polite">
+          {playState === 'loading' ? 'Loading…' : `Bar ${currentMeasure + 1}/${totalMeasures}`}
         </div>
       </div>
       <div className="playback-right">
-        <label className="time-signature-label">
-          Meter
-          <select
-            className="time-signature-select"
-            value={currentMeter}
-            onChange={(event) => {
-              const [beats, beatValue] = event.target.value.split('/').map(Number);
-              onTimeSignatureChange([beats, beatValue]);
-            }}
-            aria-label="Time signature"
+        <div className="track-navigation" aria-label="MIDI and score tracks">
+          <label className="track-select-label">
+            <span className="track-kind-icon" aria-hidden="true">
+              {activeTrack?.kind === 'percussion' ? '◉' : '♪'}
+            </span>
+            <select
+              className="track-select"
+              value={activeTrack?.id ?? ''}
+              onChange={(event) => onTrackChange(event.target.value)}
+              aria-label="Active score track"
+            >
+              {tracks.map((track, index) => (
+                <option key={track.id} value={track.id}>
+                  {index + 1}. {track.name}{track.muted ? ' (muted)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="track-count">{activeTrackIndex + 1}/{tracks.length}</span>
+          <button
+            type="button"
+            className={`track-mode-btn ${soloActiveTrack ? 'active' : ''}`}
+            onClick={onSoloActiveTrackToggle}
+            aria-pressed={soloActiveTrack}
+            title="Play only the active track"
           >
-            {!timeSignatureOptions.includes(currentMeter) && (
-              <option value={currentMeter}>{currentMeter}</option>
-            )}
-            {timeSignatureOptions.map((meter) => (
-              <option key={meter} value={meter}>{meter}</option>
-            ))}
-          </select>
-        </label>
-        <label className="key-signature-label">
-          Key
-          <select
-            className="key-signature-select"
-            value={keySignature}
-            onChange={(event) => onKeySignatureChange(event.target.value)}
-            aria-label="Key signature"
+            Solo
+          </button>
+          <button
+            type="button"
+            className={`track-mode-btn ${activeTrack?.muted ? 'active mute' : ''}`}
+            onClick={onActiveTrackMuteToggle}
+            aria-pressed={Boolean(activeTrack?.muted)}
+            title="Mute this track during ensemble playback"
           >
-            {KEY_SIGNATURES.map((key) => (
-              <option key={key} value={key}>{key}</option>
-            ))}
-          </select>
-        </label>
-        <label className="tempo-label">
-          <svg width="14" height="14" viewBox="0 0 14 14" style={{ display: 'block', opacity: 0.7 }}>
-            <ellipse cx="5" cy="10.5" rx="4" ry="3" fill="currentColor" transform="rotate(-15 5 10.5)" />
-            <line x1="8.5" y1="9" x2="8.5" y2="1" stroke="currentColor" strokeWidth="1.3" />
-          </svg>
-          =
-          <input
-            key={`tempo-${songId}-${tempo}`}
-            type="number"
-            className="tempo-input"
-            defaultValue={tempo}
-            onBlur={(event) => {
-              const parsedTempo = Number(event.target.value);
-              const nextTempo = Number.isFinite(parsedTempo)
-                ? Math.max(20, Math.min(300, Math.round(parsedTempo)))
-                : tempo;
-              event.target.value = String(nextTempo);
-              if (nextTempo !== tempo) onTempoChange(nextTempo);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') event.currentTarget.blur();
-            }}
-            min={20}
-            max={300}
-            aria-label="Tempo in beats per minute"
-          />
-          BPM
-        </label>
+            Mute
+          </button>
+        </div>
       </div>
     </div>
   );

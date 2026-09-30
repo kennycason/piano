@@ -1,15 +1,19 @@
 import type { Midi } from '@tonejs/midi';
 import {
   CURRENT_SONG_SCHEMA_VERSION,
+  DEFAULT_TRACK_SYNTH_CONTROLS,
   KEY_SIGNATURES,
   createId,
+  drumMidiToStaffKey,
   getKeySignatureAccidental,
   getMeasureCapacity,
   type Accidental,
   type Dynamic,
+  type InstrumentSound,
   type NoteDuration,
   type NoteEntry,
   type Song,
+  type SongTrack,
   type StaffClef,
 } from '../models/song';
 
@@ -37,6 +41,13 @@ interface ImportedVoice {
   clef: StaffClef;
   label: string;
   events: QuantizedEvent[];
+}
+
+interface ImportedTrack {
+  source: Midi['tracks'][number];
+  name: string;
+  percussion: boolean;
+  voices: ImportedVoice[];
 }
 
 const DURATION_UNITS: Array<{
@@ -106,11 +117,11 @@ function getSupportedKeySignature(key: string | undefined, isMinor = false): str
 function quantizeNotes(
   notes: Midi['tracks'][number]['notes'],
   gridTicks: number,
-  clef: StaffClef,
+  clef?: StaffClef,
 ): QuantizedNote[] {
   return notes.flatMap((note) => {
     const noteClef: StaffClef = note.midi >= 60 ? 'treble' : 'bass';
-    if (noteClef !== clef) return [];
+    if (clef && noteClef !== clef) return [];
     const start = Math.max(0, Math.round(note.ticks / gridTicks));
     const rawEnd = Math.round((note.ticks + note.durationTicks) / gridTicks);
     return [{
@@ -120,6 +131,22 @@ function quantizeNotes(
       velocity: note.velocity,
     }];
   });
+}
+
+function getTrackSound(track: Midi['tracks'][number]): InstrumentSound {
+  if (track.instrument.percussion) return 'drum-kit';
+  const description = `${track.name} ${track.instrument.name} ${track.instrument.family}`.toLowerCase();
+  if (/choir|voice|aah|ooh/.test(description)) return 'choir-aahs';
+  if (/string|orchestra|violin|viola|cello/.test(description)) return 'string-ensemble';
+  if (/guitar/.test(description)) return 'guitar';
+  if (/bass/.test(description)) return 'bass';
+  if (/organ/.test(description)) return 'organ';
+  if (/brass|trumpet|trombone|horn|tuba/.test(description)) return 'synth-brass';
+  if (/lead|synth/.test(description)) return 'synth-lead';
+  if (/music box|bell|celesta|mallet|vibraphone/.test(description)) return 'music-box';
+  if (/electric piano|clav/.test(description)) return 'electric-keys';
+  if (/piano/.test(description)) return 'grand-piano';
+  return 'warm-pad';
 }
 
 function groupChordEvents(notes: QuantizedNote[]): QuantizedEvent[] {
@@ -179,6 +206,7 @@ function createVoiceMeasures(
   measureCount: number,
   keySignature: string,
   hideTimingRests: boolean,
+  percussion = false,
 ): NoteEntry[][] {
   const measures = Array.from({ length: measureCount }, () => [] as NoteEntry[]);
   let cursor = 0;
@@ -197,7 +225,7 @@ function createVoiceMeasures(
       const inMeasureUnits = Math.min(remaining, roomInMeasure);
       const parts = splitUnits(inMeasureUnits);
       parts.forEach((part, partIdx) => {
-        const pitchData = event
+        const pitchData = event && !percussion
           ? event.midi.map((midi) => midiPitchToNotation(midi, keySignature))
           : [];
         const isFinalEventPart = Boolean(event) && remaining === inMeasureUnits && (
@@ -207,13 +235,16 @@ function createVoiceMeasures(
         const note: NoteEntry = {
           id: createId(),
           keys: event
-            ? pitchData.map((pitch) => pitch.key)
+            ? percussion
+              ? event.midi.map(drumMidiToStaffKey)
+              : pitchData.map((pitch) => pitch.key)
             : [clef === 'treble' ? 'b/4' : 'd/3'],
           duration: part.duration,
           dotted: part.dotted,
           isRest: event ? undefined : true,
           isSpacer: !event && hideTimingRests ? true : undefined,
           accidentals: event && accidentals.some(Boolean) ? accidentals : undefined,
+          drumMidi: event && percussion ? [...event.midi] : undefined,
           tieToNext: event && !isFinalEventPart ? true : undefined,
           dynamic: event && !hasDynamic ? velocityToDynamic(event.velocity) : undefined,
         };
@@ -269,66 +300,101 @@ export function convertMidiToSong(midi: Midi, fallbackTitle = 'Imported MIDI'): 
 
   const gridTicks = ppq / 4;
   const measureUnits = Math.max(1, Math.round(getMeasureCapacity(timeSignature) * 4));
-  const voices: ImportedVoice[] = [];
-  let importedTrackCount = 0;
-
+  const importedTracks: ImportedTrack[] = [];
   midi.tracks.forEach((track, trackIdx) => {
-    if (track.instrument.percussion) {
-      if (track.notes.length > 0) warnings.add('Percussion tracks were skipped.');
-      return;
-    }
     if (track.notes.length === 0) return;
-    importedTrackCount++;
-    const baseLabel = track.name.trim() || track.instrument.name || `Track ${trackIdx + 1}`;
-    for (const clef of ['treble', 'bass'] as const) {
-      const notes = quantizeNotes(track.notes, gridTicks, clef);
-      if (notes.length === 0) continue;
-      const lanes = partitionEvents(groupChordEvents(notes));
-      if (lanes.length > 1) {
-        warnings.add('Overlapping notes were preserved as independent staff voices.');
-      }
-      lanes.forEach((events, laneIdx) => {
-        voices.push({
+    const name = track.name.trim() || track.instrument.name || `Track ${trackIdx + 1}`;
+    const voices: ImportedVoice[] = [];
+    if (track.instrument.percussion) {
+      const lanes = partitionEvents(groupChordEvents(quantizeNotes(track.notes, gridTicks)));
+      if (lanes.length > 1) warnings.add('Overlapping drum hits were preserved as independent voices.');
+      lanes.forEach((events, laneIdx) => voices.push({
+        clef: 'treble',
+        label: lanes.length > 1 ? `Drums · voice ${laneIdx + 1}` : 'Drums',
+        events,
+      }));
+    } else {
+      for (const clef of ['treble', 'bass'] as const) {
+        const notes = quantizeNotes(track.notes, gridTicks, clef);
+        if (notes.length === 0) continue;
+        const lanes = partitionEvents(groupChordEvents(notes));
+        if (lanes.length > 1) {
+          warnings.add('Overlapping notes were preserved as independent staff voices.');
+        }
+        lanes.forEach((events, laneIdx) => voices.push({
           clef,
-          label: lanes.length > 1 ? `${baseLabel} · voice ${laneIdx + 1}` : baseLabel,
+          label: lanes.length > 1 ? `Voice ${laneIdx + 1}` : name,
           events,
-        });
-      });
+        }));
+      }
+    }
+    if (voices.length > 0) {
+      importedTracks.push({ source: track, name, percussion: track.instrument.percussion, voices });
     }
   });
 
-  if (voices.length === 0) throw new Error('No pitched note tracks were found in this MIDI file.');
+  const importedTrackCount = importedTracks.length;
+  if (importedTrackCount === 0) throw new Error('No note tracks were found in this MIDI file.');
   warnings.add('Note starts and lengths were quantized to the nearest sixteenth note.');
 
-  const maxEnd = Math.max(...voices.flatMap((voice) => voice.events.map((event) => event.end)));
+  const maxEnd = Math.max(...importedTracks.flatMap((track) => (
+    track.voices.flatMap((voice) => voice.events.map((event) => event.end))
+  )));
   const measureCount = Math.max(1, Math.ceil(maxEnd / measureUnits));
-  const staffVoiceCounts: Record<StaffClef, number> = { treble: 0, bass: 0 };
-  const voiceMeasures = voices.map((voice) => {
-    const staffVoiceIdx = staffVoiceCounts[voice.clef]++;
+  const tracks: SongTrack[] = importedTracks.map((imported) => {
+    const staffVoiceCounts: Record<StaffClef, number> = { treble: 0, bass: 0 };
+    const voiceMeasures = imported.voices.map((voice) => {
+      const staffVoiceIdx = staffVoiceCounts[voice.clef]++;
+      return {
+        ...voice,
+        measures: createVoiceMeasures(
+          voice.events,
+          voice.clef,
+          measureUnits,
+          measureCount,
+          keySignature,
+          staffVoiceIdx > 0,
+          imported.percussion,
+        ),
+      };
+    });
+    const trebleVoices = voiceMeasures.filter((voice) => voice.clef === 'treble');
+    const bassVoices = voiceMeasures.filter((voice) => voice.clef === 'bass');
+    const measures = Array.from({ length: measureCount }, (_, measureIdx) => ({
+      treble: trebleVoices[0]?.measures[measureIdx] ?? [],
+      bass: bassVoices[0]?.measures[measureIdx] ?? [],
+      additionalTrebleVoices: trebleVoices.length > 1
+        ? trebleVoices.slice(1).map((voice) => voice.measures[measureIdx])
+        : undefined,
+      additionalBassVoices: bassVoices.length > 1
+        ? bassVoices.slice(1).map((voice) => voice.measures[measureIdx])
+        : undefined,
+    }));
     return {
-      ...voice,
-      measures: createVoiceMeasures(
-        voice.events,
-        voice.clef,
-        measureUnits,
-        measureCount,
-        keySignature,
-        staffVoiceIdx > 0,
-      ),
+      id: createId(),
+      name: imported.name,
+      kind: imported.percussion ? 'percussion' : 'pitched',
+      instrumentSound: getTrackSound(imported.source),
+      synthControls: { ...DEFAULT_TRACK_SYNTH_CONTROLS },
+      midi: {
+        channel: imported.source.channel,
+        program: imported.source.instrument.number,
+        instrumentName: imported.source.instrument.name,
+        family: imported.source.instrument.family,
+      },
+      staffLayout: imported.percussion
+        ? 'treble-only'
+        : trebleVoices.length > 0 && bassVoices.length > 0
+          ? 'grand'
+          : trebleVoices.length > 0 ? 'treble-only' : 'bass-only',
+      staffClefs: imported.percussion ? { treble: 'percussion' as const } : undefined,
+      voiceLabels: {
+        ...(trebleVoices.length > 0 ? { treble: trebleVoices.map((voice) => voice.label) } : {}),
+        ...(bassVoices.length > 0 ? { bass: bassVoices.map((voice) => voice.label) } : {}),
+      },
+      measures,
     };
   });
-  const trebleVoices = voiceMeasures.filter((voice) => voice.clef === 'treble');
-  const bassVoices = voiceMeasures.filter((voice) => voice.clef === 'bass');
-  const measures = Array.from({ length: measureCount }, (_, measureIdx) => ({
-    treble: trebleVoices[0]?.measures[measureIdx] ?? [],
-    bass: bassVoices[0]?.measures[measureIdx] ?? [],
-    additionalTrebleVoices: trebleVoices.length > 1
-      ? trebleVoices.slice(1).map((voice) => voice.measures[measureIdx])
-      : undefined,
-    additionalBassVoices: bassVoices.length > 1
-      ? bassVoices.slice(1).map((voice) => voice.measures[measureIdx])
-      : undefined,
-  }));
   const now = Date.now();
   const rawTempo = midi.header.tempos[0]?.bpm ?? 120;
   const tempo = Math.round(Math.max(20, Math.min(300, rawTempo)));
@@ -343,14 +409,7 @@ export function convertMidiToSong(midi: Midi, fallbackTitle = 'Imported MIDI'): 
     tempo,
     timeSignature,
     keySignature,
-    staffLayout: trebleVoices.length > 0 && bassVoices.length > 0
-      ? 'grand'
-      : trebleVoices.length > 0 ? 'treble-only' : 'bass-only',
-    voiceLabels: {
-      ...(trebleVoices.length > 0 ? { treble: trebleVoices.map((voice) => voice.label) } : {}),
-      ...(bassVoices.length > 0 ? { bass: bassVoices.map((voice) => voice.label) } : {}),
-    },
-    measures,
+    tracks,
     createdAt: now,
     updatedAt: now,
   };

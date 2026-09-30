@@ -22,7 +22,7 @@ import {
   getMeasureVoices,
   getTieIndexes,
 } from '../models/song';
-import type { NoteEntry, SlurPlacement, Song, StaffClef } from '../models/song';
+import type { EditableScore, NoteEntry, SlurPlacement, StaffClef } from '../models/song';
 
 const DEFAULT_STAVE_WIDTH = 280;
 const MIN_STAVE_WIDTH = 240;
@@ -77,13 +77,16 @@ export interface SelectedMeasure {
   clef: StaffClef;
 }
 
+export type NoteNameMode = 'off' | 'inside' | 'below';
+
 export function renderSong(
   container: HTMLDivElement,
-  song: Song,
+  song: EditableScore,
   selectedNoteId?: string | null,
   highlightedNoteIds?: ReadonlySet<string> | null,
   availableWidth = START_X + DEFAULT_STAVE_WIDTH * MAX_MEASURES_PER_ROW + 40,
   selectedMeasure?: SelectedMeasure | null,
+  noteNameMode: NoteNameMode = 'off',
 ): RenderResult {
   container.innerHTML = '';
   const noteElements: RenderResult['noteElements'] = new Map();
@@ -96,6 +99,13 @@ export function renderSong(
     voiceIdx: number;
     slurPlacement: SlurPlacement;
   }>();
+  const noteNameLabels: Array<{
+    x: number;
+    y: number;
+    text: string;
+    hollow: boolean;
+    placement: Exclude<NoteNameMode, 'off'>;
+  }> = [];
 
   const visibleClefs: StaffClef[] = song.staffLayout === 'bass-only'
     ? ['bass']
@@ -183,7 +193,7 @@ export function renderSong(
       staves[clef] = stave;
       if (col === 0) {
         stave.addClef(displayClef);
-        if (song.keySignature && song.keySignature !== 'C') {
+        if (displayClef !== 'percussion' && song.keySignature && song.keySignature !== 'C') {
           stave.addKeySignature(song.keySignature);
         }
         if (mi === 0) {
@@ -248,8 +258,17 @@ export function renderSong(
           && notes[0].isRest
           && getMeasureBeatCount(notes) >= measureCapacity;
         const vexNotes = notes.map((note) => {
+          const renderKeys = !note.isRest && note.drumMidi
+            ? note.keys.map((key, keyIdx) => {
+                const midi = note.drumMidi?.[keyIdx] ?? 0;
+                const usesXHead = [42, 44, 46, 49, 51, 52, 55, 57, 59].includes(midi);
+                return usesXHead ? `${key}/x` : key;
+              })
+            : note.keys;
           const staveNote = new StaveNote({
-            keys: note.isRest ? (displayClef === 'treble' ? ['b/4'] : ['d/3']) : note.keys,
+            keys: note.isRest
+              ? (displayClef === 'bass' ? ['d/3'] : ['b/4'])
+              : renderKeys,
             duration: durationToVex(note.duration, note.isRest, note.dotted),
             clef: displayClef,
             alignCenter: isFullMeasureRest,
@@ -266,7 +285,7 @@ export function renderSong(
             staveNote.setStyle({ fillStyle: 'transparent', strokeStyle: 'transparent' });
           }
 
-          if (!note.isRest) {
+          if (!note.isRest && !note.drumMidi) {
             accidentalDisplay.get(note.id)?.forEach((accidental, index) => {
               if (accidental) staveNote.addModifier(new Accidental(accidental), index);
             });
@@ -341,6 +360,34 @@ export function renderSong(
         vexNotes.forEach((vexNote, noteIdx) => {
           const note = notes[noteIdx];
           if (note.isSpacer) return;
+          if (noteNameMode === 'inside' && !note.isRest && !note.drumMidi) {
+            const hollow = note.duration === 'w' || note.duration === 'h';
+            vexNote.noteHeads.forEach((noteHead, keyIdx) => {
+              const letter = note.keys[keyIdx]?.[0]?.toUpperCase();
+              if (!letter) return;
+              noteNameLabels.push({
+                x: noteHead.getAbsoluteX() + noteHead.getWidth() / 2,
+                y: noteHead.getY(),
+                text: letter,
+                hollow,
+                placement: 'inside',
+              });
+            });
+          } else if (noteNameMode === 'below' && !note.isRest && !note.drumMidi) {
+            const heads = vexNote.noteHeads;
+            const centers = heads.map((head) => head.getAbsoluteX() + head.getWidth() / 2);
+            const text = note.keys.map((key) => key[0]?.toUpperCase()).join('');
+            if (centers.length > 0 && text) {
+              noteNameLabels.push({
+                x: centers.reduce((sum, center) => sum + center, 0) / centers.length
+                  + (vexNote.getStemDirection() === Stem.DOWN ? 9 : 0),
+                y: Math.max(...heads.map((head) => head.getY())) + 14,
+                text,
+                hollow: false,
+                placement: 'below',
+              });
+            }
+          }
           const inferredSlurPlacement: SlurPlacement = voiceIdx > 0
             ? 'below'
             : (clef === 'treble' || song.staffLayout === 'bass-only' ? 'above' : 'below');
@@ -492,6 +539,35 @@ export function renderSong(
   }
 
   const svg = container.querySelector('svg');
+  if (svg && noteNameMode !== 'off' && noteNameLabels.length > 0) {
+    const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    labelGroup.setAttribute('class', 'note-name-labels');
+    labelGroup.setAttribute('aria-hidden', 'true');
+    noteNameLabels.forEach(({ x, y, text, hollow, placement }) => {
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', `note-name-label note-name-label-${placement}`);
+      label.setAttribute('x', String(x));
+      label.setAttribute('y', String(y));
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'central');
+      label.setAttribute('fill', placement === 'below' || hollow ? '#111827' : '#ffffff');
+      label.setAttribute('font-family', 'Arial, sans-serif');
+      label.setAttribute('font-size', placement === 'below' ? '10' : '8');
+      label.setAttribute('font-weight', placement === 'below' ? '800' : '900');
+      label.setAttribute('paint-order', 'stroke');
+      if (placement === 'below') {
+        label.setAttribute('stroke', '#fffef9');
+        label.setAttribute('stroke-width', '3');
+        label.setAttribute('stroke-linejoin', 'round');
+      } else if (!hollow) {
+        label.setAttribute('stroke', '#ffffff');
+        label.setAttribute('stroke-width', '0.45');
+      }
+      label.textContent = text;
+      labelGroup.appendChild(label);
+    });
+    svg.appendChild(labelGroup);
+  }
   svg?.setAttribute('role', 'img');
   svg?.setAttribute('aria-label', `Sheet music for ${title}`);
 
