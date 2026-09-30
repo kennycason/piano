@@ -11,6 +11,7 @@ import type {
   Dynamic,
   Articulation,
   StaffClef,
+  Measure,
 } from './models/song';
 import {
   createDefaultSong,
@@ -36,12 +37,18 @@ import {
   importSongFromJson,
 } from './services/storage';
 import { renderSong, type RenderResult } from './services/renderer';
-import { playbackEngine, type InstrumentSound } from './services/playback';
+import {
+  DEFAULT_SYNTH_CONTROLS,
+  playbackEngine,
+  type InstrumentSound,
+  type SynthControls,
+} from './services/playback';
 import './App.css';
 
 const MAX_HISTORY = 50;
 const PITCH_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
 const INSTRUMENT_STORAGE_KEY = 'piano_sheet_instrument';
+const SYNTH_CONTROLS_STORAGE_KEY = 'piano_sheet_synth_controls';
 type PlayState = 'stopped' | 'loading' | 'playing' | 'paused';
 interface NoteLocation {
   measureIdx: number;
@@ -64,6 +71,52 @@ interface ComposerRequest {
   id: number;
   mode: 'add' | 'edit';
   target?: ScoreTarget;
+}
+
+type EditorClipboard =
+  | { kind: 'note'; note: NoteEntry; source: ScoreTarget }
+  | { kind: 'measure'; measure: Measure };
+
+function copyNoteData(note: NoteEntry): NoteEntry {
+  return {
+    ...note,
+    keys: [...note.keys],
+    accidentals: note.accidentals ? [...note.accidentals] : undefined,
+    articulations: note.articulations ? [...note.articulations] : undefined,
+  };
+}
+
+function cloneNoteForPaste(note: NoteEntry): NoteEntry {
+  return {
+    ...copyNoteData(note),
+    id: createId(),
+    tieToNext: undefined,
+    slurToNoteId: undefined,
+    slurPlacement: undefined,
+    slurStart: undefined,
+    slurEnd: undefined,
+  };
+}
+
+function cloneMeasureForPaste(measure: Measure): Measure {
+  const oldIds = getMeasureNoteIds(measure);
+  const idMap = new Map(oldIds.map((id) => [id, createId()]));
+  const cloneVoice = (voice: NoteEntry[]) => voice.map((note, index) => ({
+    ...copyNoteData(note),
+    id: idMap.get(note.id) ?? createId(),
+    tieToNext: note.tieToNext && index < voice.length - 1 ? true : undefined,
+    slurToNoteId: note.slurToNoteId ? idMap.get(note.slurToNoteId) : undefined,
+    slurPlacement: note.slurToNoteId && idMap.has(note.slurToNoteId)
+      ? note.slurPlacement
+      : undefined,
+  }));
+  return {
+    ...measure,
+    treble: cloneVoice(measure.treble),
+    bass: cloneVoice(measure.bass),
+    additionalTrebleVoices: measure.additionalTrebleVoices?.map(cloneVoice),
+    additionalBassVoices: measure.additionalBassVoices?.map(cloneVoice),
+  };
 }
 
 function transposeNoteBySteps(note: NoteEntry, steps: number): NoteEntry {
@@ -135,6 +188,27 @@ function getInitialInstrument(): InstrumentSound {
     : 'grand-piano';
 }
 
+function getInitialSynthControls(): SynthControls {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SYNTH_CONTROLS_STORAGE_KEY) ?? 'null') as Partial<SynthControls> | null;
+    if (!parsed) return { ...DEFAULT_SYNTH_CONTROLS };
+    const getControl = (key: keyof SynthControls) => {
+      const value = parsed[key];
+      return typeof value === 'number' && Number.isFinite(value)
+        ? Math.max(0, Math.min(1, value))
+        : DEFAULT_SYNTH_CONTROLS[key];
+    };
+    return {
+      volume: getControl('volume'),
+      tone: getControl('tone'),
+      echo: getControl('echo'),
+      sustain: getControl('sustain'),
+    };
+  } catch {
+    return { ...DEFAULT_SYNTH_CONTROLS };
+  }
+}
+
 function App() {
   const [initialLibrary] = useState(createInitialLibrary);
   const [songs, setSongs] = useState<Song[]>(initialLibrary.songs);
@@ -146,6 +220,8 @@ function App() {
   const [isDotted, setIsDotted] = useState(false);
   const [playState, setPlayState] = useState<PlayState>('stopped');
   const [instrumentSound, setInstrumentSound] = useState<InstrumentSound>(getInitialInstrument);
+  const [synthControls, setSynthControls] = useState<SynthControls>(getInitialSynthControls);
+  const [loopEnabled, setLoopEnabled] = useState(false);
   const [currentPlayMeasure, setCurrentPlayMeasure] = useState(0);
   const [editorMessage, setEditorMessage] = useState<string | null>(null);
   const [slurToolActive, setSlurToolActive] = useState(false);
@@ -156,6 +232,7 @@ function App() {
   const [isDraggingNote, setIsDraggingNote] = useState(false);
   const [highlightedNoteIds, setHighlightedNoteIds] = useState<string[]>([]);
   const [activePlaybackKeys, setActivePlaybackKeys] = useState<string[]>([]);
+  const [editorClipboard, setEditorClipboard] = useState<EditorClipboard | null>(null);
 
   // Undo/redo history
   const [undoStack, setUndoStack] = useState<Song[]>([]);
@@ -880,6 +957,119 @@ function App() {
     setComposerRequest(null);
   }, [selectedNoteId, findNoteLocation, updateSong]);
 
+  const handleCopy = useCallback(() => {
+    if (selectedNoteId) {
+      const location = findNoteLocation(selectedNoteId);
+      if (!location) return;
+      const note = getMeasureVoice(
+        currentSong.measures[location.measureIdx],
+        location.clef,
+        location.voiceIdx,
+      )[location.noteIdx];
+      if (!note) return;
+      setEditorClipboard({
+        kind: 'note',
+        note: copyNoteData(note),
+        source: {
+          measureIdx: location.measureIdx,
+          clef: location.clef,
+          voiceIdx: location.voiceIdx,
+        },
+      });
+      setEditorMessage(`Copied ${note.isRest ? 'rest' : note.keys.length > 1 ? 'chord' : 'note'} from bar ${location.measureIdx + 1}.`);
+      return;
+    }
+
+    if (selectedBarTarget) {
+      const measure = currentSong.measures[selectedBarTarget.measureIdx];
+      if (!measure) return;
+      setEditorClipboard({ kind: 'measure', measure: cloneMeasureForPaste(measure) });
+      setEditorMessage(`Copied bar ${selectedBarTarget.measureIdx + 1}.`);
+    }
+  }, [currentSong, findNoteLocation, selectedBarTarget, selectedNoteId]);
+
+  const handlePaste = useCallback(() => {
+    if (!editorClipboard) return;
+    const selectedLocation = selectedNoteId ? findNoteLocation(selectedNoteId) : null;
+
+    if (editorClipboard.kind === 'measure') {
+      const targetMeasureIdx = selectedLocation?.measureIdx
+        ?? selectedBarTarget?.measureIdx
+        ?? currentSong.measures.length - 1;
+      const insertIdx = Math.max(0, Math.min(currentSong.measures.length, targetMeasureIdx + 1));
+      const pastedMeasure = cloneMeasureForPaste(editorClipboard.measure);
+      updateSong((song) => ({
+        ...song,
+        measures: [
+          ...song.measures.slice(0, insertIdx),
+          pastedMeasure,
+          ...song.measures.slice(insertIdx),
+        ],
+      }));
+      const clef = currentSong.staffLayout === 'bass-only'
+        ? 'bass'
+        : selectedBarTarget?.clef ?? selectedLocation?.clef ?? 'treble';
+      setSelectedNoteId(null);
+      setSelectedBarTarget({ measureIdx: insertIdx, clef, voiceIdx: 0 });
+      setComposerRequest(null);
+      setScoreContextMenu(null);
+      setEditorMessage(`Pasted a copy as bar ${insertIdx + 1}.`);
+      return;
+    }
+
+    const fallbackMeasureIdx = Math.max(
+      0,
+      Math.min(currentSong.measures.length - 1, editorClipboard.source.measureIdx),
+    );
+    const target: ScoreTarget = selectedLocation
+      ? {
+          measureIdx: selectedLocation.measureIdx,
+          clef: selectedLocation.clef,
+          voiceIdx: selectedLocation.voiceIdx,
+        }
+      : selectedBarTarget ?? {
+          measureIdx: fallbackMeasureIdx,
+          clef: editorClipboard.source.clef,
+          voiceIdx: editorClipboard.source.voiceIdx,
+        };
+    const targetMeasure = currentSong.measures[target.measureIdx];
+    if (!targetMeasure) return;
+    const targetNotes = getMeasureVoice(targetMeasure, target.clef, target.voiceIdx);
+    const pastedNote = cloneNoteForPaste(editorClipboard.note);
+    if (
+      getMeasureBeatCount(targetNotes) + getNoteBeatValue(pastedNote) >
+      getMeasureCapacity(currentSong.timeSignature)
+    ) {
+      setEditorMessage(`Bar ${target.measureIdx + 1} does not have room for that ${pastedNote.keys.length > 1 ? 'chord' : 'note'}.`);
+      return;
+    }
+    const insertIdx = selectedLocation ? selectedLocation.noteIdx + 1 : targetNotes.length;
+    updateSong((song) => {
+      const measures = song.measures.map((measure) => ({ ...measure }));
+      const notes = [...getMeasureVoice(measures[target.measureIdx], target.clef, target.voiceIdx)];
+      notes.splice(insertIdx, 0, pastedNote);
+      measures[target.measureIdx] = replaceMeasureVoice(
+        measures[target.measureIdx],
+        target.clef,
+        target.voiceIdx,
+        notes,
+      );
+      return { ...song, measures };
+    });
+    setSelectedNoteId(pastedNote.id);
+    setSelectedBarTarget(null);
+    setComposerRequest(null);
+    setScoreContextMenu(null);
+    setEditorMessage(`Pasted ${pastedNote.isRest ? 'rest' : pastedNote.keys.length > 1 ? 'chord' : 'note'} into bar ${target.measureIdx + 1}.`);
+  }, [
+    currentSong,
+    editorClipboard,
+    findNoteLocation,
+    selectedBarTarget,
+    selectedNoteId,
+    updateSong,
+  ]);
+
   // Playback
   const handlePlay = useCallback(async () => {
     if (playState === 'paused') {
@@ -903,7 +1093,7 @@ function App() {
       setCurrentPlayMeasure(0);
     });
     try {
-      await playbackEngine.play(currentSong, instrumentSound);
+      await playbackEngine.play(currentSong, instrumentSound, 0, loopEnabled);
       if (playbackEngine.getState() === 'playing') setPlayState('playing');
     } catch {
       playbackEngine.stop();
@@ -912,7 +1102,7 @@ function App() {
       setActivePlaybackKeys([]);
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     }
-  }, [currentSong, instrumentSound, playState]);
+  }, [currentSong, instrumentSound, loopEnabled, playState]);
 
   const handlePause = useCallback(() => {
     playbackEngine.pause();
@@ -928,13 +1118,32 @@ function App() {
   }, []);
 
   const handleInstrumentSoundChange = useCallback((sound: InstrumentSound) => {
-    handleStop();
     setInstrumentSound(sound);
     localStorage.setItem(INSTRUMENT_STORAGE_KEY, sound);
-    void playbackEngine.prepare(sound).catch(() => {
+    void playbackEngine.selectInstrument(sound).catch(() => {
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     });
-  }, [handleStop]);
+  }, []);
+
+  const handleSynthControlsChange = useCallback((controls: SynthControls) => {
+    setSynthControls(controls);
+    localStorage.setItem(SYNTH_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
+    playbackEngine.setSynthControls(controls);
+  }, []);
+
+  const handleLoopToggle = useCallback(() => {
+    setLoopEnabled((enabled) => {
+      const next = !enabled;
+      playbackEngine.setLoop(next);
+      return next;
+    });
+  }, []);
+
+  const handlePreviewNotes = useCallback((keys: string[]) => {
+    void playbackEngine.previewNotes(keys, instrumentSound).catch(() => {
+      setEditorMessage('That sound could not be prepared. Try another preset or check your connection.');
+    });
+  }, [instrumentSound]);
 
   useEffect(() => {
     // Start fetching/constructing the chosen instrument before the first Play
@@ -944,12 +1153,23 @@ function App() {
     });
   }, [instrumentSound]);
 
+  useEffect(() => {
+    playbackEngine.setSynthControls(synthControls);
+  }, [synthControls]);
+
   useEffect(() => () => playbackEngine.stop(), []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      const target = e.target as HTMLElement;
+      const shortcutKey = e.key.toLowerCase();
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      ) return;
 
       if (composerRequest) {
         if (e.key === 'Escape') {
@@ -960,11 +1180,17 @@ function App() {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      if ((e.metaKey || e.ctrlKey) && shortcutKey === 'z' && !e.shiftKey) {
         e.preventDefault(); handleUndo(); return;
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      if ((e.metaKey || e.ctrlKey) && (shortcutKey === 'y' || (shortcutKey === 'z' && e.shiftKey))) {
         e.preventDefault(); handleRedo(); return;
+      }
+      if ((e.metaKey || e.ctrlKey) && shortcutKey === 'c') {
+        e.preventDefault(); handleCopy(); return;
+      }
+      if ((e.metaKey || e.ctrlKey) && shortcutKey === 'v') {
+        e.preventDefault(); handlePaste(); return;
       }
 
       switch (e.key) {
@@ -1001,7 +1227,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, composerRequest, cancelComposerSession]);
+  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, handleCopy, handlePaste, composerRequest, cancelComposerSession]);
 
   // Add note with beat validation
   const handleAddNote = (keys: string[], clef: 'treble' | 'bass') => {
@@ -1262,6 +1488,7 @@ function App() {
   };
 
   const selectedNote = getSelectedNote();
+  const canCopy = Boolean(selectedNoteId || selectedBarTarget);
   const selectedNoteLabel = selectedNote?.isRest
     ? 'Rest'
     : selectedNote?.keys.map((key, index) => {
@@ -1295,15 +1522,15 @@ function App() {
         playState={playState}
         tempo={currentSong.tempo}
         keySignature={currentSong.keySignature}
-        instrumentSound={instrumentSound}
+        loopEnabled={loopEnabled}
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
+        onLoopToggle={handleLoopToggle}
         onTempoChange={(tempo) => updateSong((song) => song.tempo === tempo ? song : { ...song, tempo })}
         onKeySignatureChange={(keySignature) => updateSong((song) => (
           song.keySignature === keySignature ? song : { ...song, keySignature }
         ))}
-        onInstrumentSoundChange={handleInstrumentSoundChange}
         songTitle={currentSong.title}
         onTitleChange={(title) => updateSong((song) => song.title === title ? song : { ...song, title })}
         currentMeasure={currentPlayMeasure}
@@ -1341,8 +1568,12 @@ function App() {
         onDeleteMeasure={handleDeleteMeasure}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
+        canCopy={canCopy}
+        canPaste={Boolean(editorClipboard)}
         canDeleteMeasure={currentSong.measures.length > 1}
         selectedNote={selectedNote}
       />
@@ -1441,11 +1672,11 @@ function App() {
               {composerRequest?.mode === 'add' ? (
                 <>Click a piano key again to remove it &middot; Enter: finish &middot; Escape: cancel</>
               ) : selectedNote ? (
-                <>{selectedNote.isRest ? '↑/↓: move rest' : 'Drag: move · click above/below: add tone'} &middot; Right-click: edit/delete &middot; ←/→: navigate</>
+                <>{selectedNote.isRest ? '↑/↓: move rest' : 'Drag: move · click above/below: add tone'} &middot; Cmd/Ctrl+C/V: copy/paste &middot; ←/→: navigate</>
               ) : selectedBarTarget ? (
-                <>Right-click bar: add note(s) &middot; Click piano: add note</>
+                <>Cmd/Ctrl+C/V: copy/paste bar &middot; Right-click: add notes &middot; Click piano: add note</>
               ) : (
-                <>Right-click a bar for actions &middot; Space: play/pause &middot; Cmd+Z: undo</>
+                <>Space: play/pause &middot; Cmd/Ctrl+Z: undo &middot; Cmd/Ctrl+Shift+Z: redo</>
               )}
             </span>
           </div>
@@ -1460,6 +1691,11 @@ function App() {
         onSessionCommit={commitComposerSession}
         onSessionCancel={cancelComposerSession}
         activePlaybackKeys={activePlaybackKeys}
+        instrumentSound={instrumentSound}
+        synthControls={synthControls}
+        onInstrumentSoundChange={handleInstrumentSoundChange}
+        onSynthControlsChange={handleSynthControlsChange}
+        onPreviewNotes={handlePreviewNotes}
         onUpdateSelectedKeys={(keys) => {
           const normalized = normalizePianoKeys(keys);
           modifySelectedNote((note) => ({

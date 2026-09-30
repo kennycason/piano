@@ -73,9 +73,9 @@
 }
 
 .transport-btn.transport-main {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
 }
 
 .transport-btn.transport-main.play {
@@ -103,6 +103,12 @@
   color: #89b4fa;
   border-color: #585b70;
   opacity: 1;
+}
+
+.transport-btn.loop-btn.active {
+  background: #a6e3a1;
+  color: #1e1e2e;
+  border-color: #a6e3a1;
 }
 
 .loading-spinner {
@@ -148,8 +154,7 @@
 }
 
 .tempo-label,
-.key-signature-label,
-.sound-label {
+.key-signature-label {
   color: #a6adc8;
   font-size: 13px;
   display: flex;
@@ -158,8 +163,7 @@
 }
 
 .tempo-input,
-.key-signature-select,
-.sound-select {
+.key-signature-select {
   background: #1e1e2e;
   color: #cdd6f4;
   border: 1px solid #45475a;
@@ -175,15 +179,8 @@
   padding-inline: 7px;
 }
 
-.sound-select {
-  width: 124px;
-  padding-inline: 7px;
-  text-align: left;
-}
-
 .tempo-input:focus,
-.key-signature-select:focus,
-.sound-select:focus {
+.key-signature-select:focus {
   outline: none;
   border-color: #89b4fa;
 }
@@ -206,8 +203,7 @@
   }
 
   .tempo-label,
-  .key-signature-label,
-  .sound-label {
+  .key-signature-label {
     font-size: 0;
     gap: 3px;
   }

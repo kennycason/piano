@@ -9,9 +9,84 @@
 
 .note-input-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  padding: 4px 16px;
+  gap: 16px;
+  padding: 6px 16px;
+  min-height: 42px;
+}
+
+.synth-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.synth-title {
+  color: #cdd6f4;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.synth-preset-label,
+.synth-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #6c7086;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.synth-preset-select {
+  width: 116px;
+  padding: 4px 7px;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  outline: none;
+  background: #181825;
+  color: #cdd6f4;
+  font-size: 11px;
+  text-transform: none;
+}
+
+.synth-preset-select:focus {
+  border-color: #89b4fa;
+}
+
+.synth-control {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.synth-control input[type='range'] {
+  width: clamp(52px, 5vw, 76px);
+  height: 12px;
+  margin: 0;
+  accent-color: #89b4fa;
+  cursor: pointer;
+}
+
+.synth-reset-btn {
+  padding: 4px 7px;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  background: #313244;
+  color: #a6adc8;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.synth-reset-btn:hover {
+  background: #45475a;
 }
 
 .note-input-actions {
@@ -96,29 +171,6 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 0 8px;
-}
-
-.piano-clef-labels {
-  position: relative;
-  height: 16px;
-  min-width: 780px;
-}
-
-.clef-label {
-  position: absolute;
-  transform: translateX(-50%);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.bass-label {
-  color: #f9e2af;
-}
-
-.treble-label {
-  color: #89b4fa;
 }
 
 .piano-keys-area {
@@ -242,5 +294,27 @@
 @media (max-height: 760px) {
   .piano-keys-area {
     height: 104px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .synth-control span,
+  .synth-title {
+    display: none;
+  }
+
+  .synth-panel {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .note-input-header {
+    align-items: flex-start;
+    overflow-x: auto;
+  }
+
+  .note-input-actions {
+    flex: 0 0 auto;
   }
 }

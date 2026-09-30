@@ -5,7 +5,7 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 ## Screenshots
 
 <p align="center">
-  <img src="./screenshots/pixel_parade.png" alt="Pixel Parade score open in Piano Sheet" width="100%">
+  <img src="./screenshots/marin_hymn_main.png" alt="Marine Hymn score open in Piano Sheet" width="100%">
 </p>
 
 <p align="center">
@@ -26,14 +26,14 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 - Five note durations, dotted notes, accidentals, dynamics, and articulations
 - Standard key signatures and per-rest vertical positioning
 - Ties, slurs, pedal markers, repeat markers, and measure management
-- Four playback sounds: sampled grand piano, electric keys, warm pad, and music box
-- Playback with pause, resume, repeats, dynamics, articulation timing, and a moving score cursor
+- A playable keyboard synth with four presets plus volume, tone, echo, and note-length controls
+- Playback with pause, resume, seamless whole-song looping, repeats, dynamics, articulation timing, and a moving score cursor
 - Simultaneous score-note highlighting across staves plus live playback lighting on the piano keys
-- Undo/redo and keyboard shortcuts
+- Note, chord, rest, and whole-bar copy/paste with undo/redo and keyboard shortcuts
 - Multiple locally saved songs with JSON import/export
-- Five bundled, editable sample scores for learning and exploring the editor
+- Six bundled, editable sample scores for learning and exploring the editor
 
-Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; the three synthesized sounds do not require sample downloads.
+Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; the three synthesized sounds do not require sample downloads.
 
 ## Run locally
 
@@ -90,6 +90,8 @@ Useful shortcuts:
 - Arrow up/down: move the selected note by a staff step, or nudge a selected rest vertically
 - `T`: toggle tie
 - `Delete`/`Backspace`: delete selected note
+- `Cmd/Ctrl+C`: copy the selected note, chord, rest, or bar
+- `Cmd/Ctrl+V`: paste a note after the selection, or duplicate a copied bar after the selected bar
 - `Space`: play, pause, or stop loading
 - `Escape`: cancel the current slur or note-entry session
 - `Cmd/Ctrl+Z`: undo; `Cmd/Ctrl+Shift+Z` or `Ctrl+Y`: redo

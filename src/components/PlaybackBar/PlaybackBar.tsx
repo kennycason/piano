@@ -1,6 +1,5 @@
 import React from 'react';
 import { KEY_SIGNATURES } from '../../models/song';
-import { INSTRUMENT_OPTIONS, type InstrumentSound } from '../../services/playback';
 import './PlaybackBar.css';
 
 interface PlaybackBarProps {
@@ -8,13 +7,13 @@ interface PlaybackBarProps {
   playState: 'stopped' | 'loading' | 'playing' | 'paused';
   tempo: number;
   keySignature: string;
-  instrumentSound: InstrumentSound;
+  loopEnabled: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
+  onLoopToggle: () => void;
   onTempoChange: (tempo: number) => void;
   onKeySignatureChange: (keySignature: string) => void;
-  onInstrumentSoundChange: (sound: InstrumentSound) => void;
   songTitle: string;
   onTitleChange: (title: string) => void;
   currentMeasure: number;
@@ -26,13 +25,13 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   playState,
   tempo,
   keySignature,
-  instrumentSound,
+  loopEnabled,
   onPlay,
   onPause,
   onStop,
+  onLoopToggle,
   onTempoChange,
   onKeySignatureChange,
-  onInstrumentSoundChange,
   songTitle,
   onTitleChange,
   currentMeasure,
@@ -91,31 +90,29 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
               </svg>
             </button>
           )}
+          <button
+            type="button"
+            className={`transport-btn loop-btn ${loopEnabled ? 'active' : ''}`}
+            onClick={onLoopToggle}
+            title={`Loop whole song: ${loopEnabled ? 'on' : 'off'}`}
+            aria-label="Loop whole song"
+            aria-pressed={loopEnabled}
+          >
+            <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
+              <path d="M4 5.25h8.2l-1.8-1.8M14 12.75H5.8l1.8 1.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M13.8 5.3c.8.75 1.2 1.7 1.2 2.7M4.2 12.7C3.4 11.95 3 11 3 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
-        {/* Progress bar */}
-        {playState !== 'stopped' && (
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
-            <span className="progress-text">
-              {playState === 'loading' ? 'Loading piano…' : `Bar ${currentMeasure + 1} / ${totalMeasures}`}
-            </span>
-          </div>
-        )}
+        {/* Always mounted so transport controls never shift between states. */}
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
+          <span className="progress-text">
+            {playState === 'loading' ? 'Loading piano…' : `Bar ${currentMeasure + 1} / ${totalMeasures}`}
+          </span>
+        </div>
       </div>
       <div className="playback-right">
-        <label className="sound-label">
-          Sound
-          <select
-            className="sound-select"
-            value={instrumentSound}
-            onChange={(event) => onInstrumentSoundChange(event.target.value as InstrumentSound)}
-            aria-label="Playback instrument"
-          >
-            {INSTRUMENT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
         <label className="key-signature-label">
           Key
           <select

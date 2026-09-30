@@ -40,8 +40,12 @@ interface ToolbarProps {
   onDeleteMeasure: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  canCopy: boolean;
+  canPaste: boolean;
   canDeleteMeasure: boolean;
   selectedNote: NoteEntry | null;
 }
@@ -118,8 +122,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onDeleteMeasure,
   onUndo,
   onRedo,
+  onCopy,
+  onPaste,
   canUndo,
   canRedo,
+  canCopy,
+  canPaste,
   canDeleteMeasure,
   selectedNote,
 }) => {
@@ -132,7 +140,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* Undo / Redo */}
       <div className="toolbar-section">
         <div className="toolbar-group">
-          <Tip text="Undo (Ctrl+Z)">
+          <Tip text="Undo (Cmd/Ctrl+Z)">
             <button type="button" className="toolbar-btn" onClick={onUndo} disabled={!canUndo} aria-label="Undo">
               <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: 'block' }}>
                 <path d="M5 3 L1 7 L5 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -140,12 +148,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </svg>
             </button>
           </Tip>
-          <Tip text="Redo (Ctrl+Y)">
+          <Tip text="Redo (Cmd/Ctrl+Shift+Z or Ctrl+Y)">
             <button type="button" className="toolbar-btn" onClick={onRedo} disabled={!canRedo} aria-label="Redo">
               <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: 'block' }}>
                 <path d="M11 3 L15 7 L11 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M14.5 7 L6 7 Q2 7, 2 11 Q2 14, 6 14 L8 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
+            </button>
+          </Tip>
+          <Tip text="Copy selected note, chord, rest, or bar (Cmd/Ctrl+C)">
+            <button type="button" className="toolbar-btn edit-action-btn" onClick={onCopy} disabled={!canCopy} aria-label="Copy selection">
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="5" y="5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M3.5 10.5H3A1.5 1.5 0 0 1 1.5 9V3A1.5 1.5 0 0 1 3 1.5h6A1.5 1.5 0 0 1 10.5 3v.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <span>Copy</span>
+            </button>
+          </Tip>
+          <Tip text="Paste after the selected note or bar (Cmd/Ctrl+V)">
+            <button type="button" className="toolbar-btn edit-action-btn" onClick={onPaste} disabled={!canPaste} aria-label="Paste selection">
+              <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v8A1.5 1.5 0 0 1 11 14.5H5A1.5 1.5 0 0 1 3.5 13V5A1.5 1.5 0 0 1 5 3.5Z" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M6 3V2.5A1.5 1.5 0 0 1 7.5 1h1A1.5 1.5 0 0 1 10 2.5V3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <span>Paste</span>
             </button>
           </Tip>
         </div>

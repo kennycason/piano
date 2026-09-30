@@ -23,7 +23,7 @@ The editor has a solid local-first prototype core. The next phase should priorit
 ## P2 — playback and practice
 
 - Add play-from-selection and make the existing playback cursor seekable.
-- Add metronome, count-in, looping, and per-hand mute/solo.
+- Add metronome, count-in, loop-range controls, and per-hand mute/solo.
 - Make tempo changes during playback deterministic.
 - Support repeat endings, D.C./D.S., coda, and more complete score navigation.
 - Add detailed audio loading progress and automatically fall back to a synthesized sound when samples are unavailable.

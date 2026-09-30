@@ -23,6 +23,20 @@ export const INSTRUMENT_OPTIONS: ReadonlyArray<{ value: InstrumentSound; label: 
   { value: 'music-box', label: 'Music Box' },
 ];
 
+export interface SynthControls {
+  volume: number;
+  tone: number;
+  echo: number;
+  sustain: number;
+}
+
+export const DEFAULT_SYNTH_CONTROLS: SynthControls = {
+  volume: 0.82,
+  tone: 0.72,
+  echo: 0.08,
+  sustain: 0.48,
+};
+
 export interface PlaybackCursorState {
   measureIdx: number;
   progress: number;
@@ -122,8 +136,15 @@ export class PlaybackEngine {
   private sampler: import('tone').Sampler | null = null;
   private samplerPromise: Promise<PlaybackOutput> | null = null;
   private synths = new Map<Exclude<InstrumentSound, 'grand-piano'>, PlaybackOutput>();
+  private masterFilter: import('tone').Filter | null = null;
+  private masterDelay: import('tone').FeedbackDelay | null = null;
+  private masterVolume: import('tone').Volume | null = null;
+  private controls: SynthControls = { ...DEFAULT_SYNTH_CONTROLS };
   private activeOutput: PlaybackOutput | null = null;
   private state: 'stopped' | 'playing' | 'paused' = 'stopped';
+  private loopEnabled = false;
+  private loopEnd = 0;
+  private instrumentRequest = 0;
   private generation = 0;
   private cursorSegments: Array<{
     measureIdx: number;
@@ -144,6 +165,40 @@ export class PlaybackEngine {
     return this.tonePromise;
   }
 
+  private ensureMasterChain(Tone: ToneModule): import('tone').Filter {
+    if (!this.masterFilter || !this.masterDelay || !this.masterVolume) {
+      this.masterVolume = new Tone.Volume().toDestination();
+      this.masterDelay = new Tone.FeedbackDelay({
+        delayTime: 0.18,
+        feedback: 0.2,
+        wet: 0,
+      }).connect(this.masterVolume);
+      this.masterFilter = new Tone.Filter({
+        frequency: 12_000,
+        type: 'lowpass',
+        rolloff: -12,
+      }).connect(this.masterDelay);
+      this.applySynthControls();
+    }
+    return this.masterFilter;
+  }
+
+  private applySynthControls(): void {
+    const volume = Math.max(0, Math.min(1, this.controls.volume));
+    const tone = Math.max(0, Math.min(1, this.controls.tone));
+    const echo = Math.max(0, Math.min(1, this.controls.echo));
+    if (this.masterVolume) {
+      this.masterVolume.volume.value = volume <= 0.001 ? -60 : 20 * Math.log10(volume);
+    }
+    if (this.masterFilter) {
+      this.masterFilter.frequency.value = 550 + tone * tone * 14_500;
+    }
+    if (this.masterDelay) {
+      this.masterDelay.wet.value = echo * 0.55;
+      this.masterDelay.feedback.value = 0.12 + echo * 0.32;
+    }
+  }
+
   private ensureSampler(Tone: ToneModule): Promise<PlaybackOutput> {
     if (!this.samplerPromise) {
       const samplerPromise = new Promise<PlaybackOutput>((resolve, reject) => {
@@ -162,7 +217,7 @@ export class PlaybackEngine {
           baseUrl: 'https://tonejs.github.io/audio/salamander/',
           onload: () => resolve(this.sampler as unknown as PlaybackOutput),
           onerror: (error) => reject(error),
-        }).toDestination();
+        }).connect(this.ensureMasterChain(Tone));
       }).catch((error: unknown) => {
         this.samplerPromise = null;
         this.sampler?.dispose();
@@ -195,7 +250,7 @@ export class PlaybackEngine {
             oscillator: { type: 'triangle8' as const },
             envelope: { attack: 0.002, decay: 0.7, sustain: 0.04, release: 1.4 },
           };
-    const synth = new Tone.PolySynth(Tone.Synth, settings).toDestination();
+    const synth = new Tone.PolySynth(Tone.Synth, settings).connect(this.ensureMasterChain(Tone));
     synth.volume.value = sound === 'warm-pad' ? -8 : sound === 'music-box' ? -5 : -6;
     const output = synth as unknown as PlaybackOutput;
     this.synths.set(sound, output);
@@ -213,11 +268,47 @@ export class PlaybackEngine {
     await this.ensureInstrument(sound);
   }
 
+  setSynthControls(controls: SynthControls): void {
+    this.controls = {
+      volume: Math.max(0, Math.min(1, controls.volume)),
+      tone: Math.max(0, Math.min(1, controls.tone)),
+      echo: Math.max(0, Math.min(1, controls.echo)),
+      sustain: Math.max(0, Math.min(1, controls.sustain)),
+    };
+    this.applySynthControls();
+  }
+
+  async selectInstrument(sound: InstrumentSound): Promise<void> {
+    const request = ++this.instrumentRequest;
+    const output = await this.ensureInstrument(sound);
+    if (request !== this.instrumentRequest) return;
+    if (this.activeOutput !== output && this.state !== 'stopped') {
+      this.activeOutput?.releaseAll();
+      this.onActiveKeysCallback?.([]);
+    }
+    this.activeOutput = output;
+  }
+
+  async previewNotes(keys: string[], sound: InstrumentSound): Promise<void> {
+    if (keys.length === 0) return;
+    const Tone = await this.getTone();
+    const output = await this.ensureInstrument(sound);
+    await Tone.start();
+    const toneNotes = keys.map((key) => vexKeyToNote(key, null, 'C'));
+    const duration = 0.16 + this.controls.sustain * 1.35;
+    output.triggerAttackRelease(toneNotes, duration, Tone.now(), 0.72);
+  }
+
   onNotes(callback: NotesCallback) { this.onNotesCallback = callback; }
   onActiveKeys(callback: ActiveKeysCallback) { this.onActiveKeysCallback = callback; }
   onStopped(callback: StopCallback) { this.onStopCallback = callback; }
 
-  async play(song: Song, sound: InstrumentSound, startMeasure = 0): Promise<void> {
+  async play(
+    song: Song,
+    sound: InstrumentSound,
+    startMeasure = 0,
+    loop = false,
+  ): Promise<void> {
     if (this.state !== 'stopped') this.stop();
     const playGeneration = ++this.generation;
     const Tone = await this.getTone();
@@ -230,7 +321,9 @@ export class PlaybackEngine {
     const transport = Tone.getTransport();
     transport.stop();
     transport.cancel();
+    transport.loop = false;
     transport.seconds = 0;
+    this.loopEnabled = loop;
 
     let time = 0;
     const currentVelocity = new Map<string, number>();
@@ -315,7 +408,12 @@ export class PlaybackEngine {
               eventAt(voiceTime + actualDuration).stops.push(...pianoKeys);
               transport.schedule((scheduledTime) => {
                 if (this.state !== 'playing') return;
-                output.triggerAttackRelease(toneNotes, actualDuration, scheduledTime, velocity);
+                this.activeOutput?.triggerAttackRelease(
+                  toneNotes,
+                  actualDuration,
+                  scheduledTime,
+                  velocity,
+                );
               }, voiceTime);
             }
 
@@ -335,6 +433,7 @@ export class PlaybackEngine {
         transport.schedule((scheduledTime) => {
           if (this.state !== 'playing') return;
           Tone.getDraw().schedule(() => {
+            if (this.state !== 'playing' || playGeneration !== this.generation) return;
             for (const key of event.stops) {
               const count = (activeKeyCounts.get(key) ?? 0) - 1;
               if (count > 0) activeKeyCounts.set(key, count);
@@ -366,6 +465,23 @@ export class PlaybackEngine {
       }, scheduledTime);
     }, time + 0.08);
 
+    this.loopEnd = time;
+    transport.loopStart = 0;
+    transport.loopEnd = time;
+    transport.loop = loop;
+
+    // Reset visual key accounting immediately before a new loop begins. Notes
+    // scheduled at beat zero then establish the next cycle's active keys.
+    if (time > 0.002) {
+      transport.schedule((scheduledTime) => {
+        if (!this.loopEnabled) return;
+        Tone.getDraw().schedule(() => {
+          activeKeyCounts.clear();
+          this.onActiveKeysCallback?.([]);
+        }, scheduledTime);
+      }, time - 0.001);
+    }
+
     // Give the audio graph a short, deterministic lead-in after loading. This
     // avoids asking the first sampled note to sound on the same frame that the
     // browser resumes its audio context.
@@ -386,11 +502,21 @@ export class PlaybackEngine {
     this.tone.getTransport().start('+0.04');
   }
 
+  setLoop(enabled: boolean): void {
+    this.loopEnabled = enabled;
+    if (!this.tone || this.loopEnd <= 0) return;
+    const transport = this.tone.getTransport();
+    transport.loopStart = 0;
+    transport.loopEnd = this.loopEnd;
+    transport.loop = enabled;
+  }
+
   stop() {
     this.generation++;
     this.state = 'stopped';
     this.tone?.getTransport().stop();
     this.tone?.getTransport().cancel();
+    if (this.tone) this.tone.getTransport().loop = false;
     this.activeOutput?.releaseAll();
     this.onActiveKeysCallback?.([]);
     this.cursorSegments = [];

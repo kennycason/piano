@@ -1,6 +1,7 @@
 import type { Song } from '../models/song';
 import alouetteBeginner from '../../songs/alouette-beginner.json';
 import marinesHymnBeginner from '../../songs/marines-hymn-beginner.json';
+import marinesHymn from '../../songs/marines-hymn.json';
 import orbitingRuins from '../../songs/orbiting-ruins.json';
 import pixelParade from '../../songs/pixel-parade.json';
 import teacherDuetSingleBassStaff from '../../songs/teacher-duet-single-bass-staff.json';
@@ -8,11 +9,12 @@ import teacherDuetSingleBassStaff from '../../songs/teacher-duet-single-bass-sta
 const STORAGE_KEY = 'piano_sheet_songs';
 const CURRENT_SONG_KEY = 'piano_sheet_current';
 const SAMPLE_LIBRARY_VERSION_KEY = 'piano_sheet_sample_library_version';
-const SAMPLE_LIBRARY_VERSION = '1';
+const SAMPLE_LIBRARY_VERSION = '2';
 const NOTE_DURATIONS = new Set(['w', 'h', 'q', '8', '16']);
 const BUNDLED_SAMPLE_CANDIDATES: unknown[] = [
   alouetteBeginner,
   marinesHymnBeginner,
+  marinesHymn,
   orbitingRuins,
   pixelParade,
   teacherDuetSingleBassStaff,

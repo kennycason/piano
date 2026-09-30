@@ -1,0 +1,266 @@
+{
+  "id": "fixture-marines-hymn-full",
+  "title": "The Marines’ Hymn — Full Piano",
+  "tempo": 120,
+  "timeSignature": [2, 4],
+  "keySignature": "Eb",
+  "staffLayout": "grand",
+  "voiceLabels": { "treble": ["Melody"], "bass": ["March bass"] },
+  "measures": [
+    {
+      "treble": [
+        { "id": "marines-full-m1-r1", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "marines-full-m1-1", "keys": ["e/4"], "duration": "8", "dynamic": "f" },
+        { "id": "marines-full-m1-2", "keys": ["g/4"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m1-b1", "keys": ["e/2"], "duration": "q", "dynamic": "f" },
+        { "id": "marines-full-m1-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m2-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m2-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m2-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m2-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m3-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m3-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m3-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m3-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m4-1", "keys": ["b/4"], "duration": "q", "dotted": true },
+        { "id": "marines-full-m4-2", "keys": ["e/5"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m4-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m4-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m5-1", "keys": ["b/4"], "duration": "q" },
+        { "id": "marines-full-m5-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "marines-full-m5-3", "keys": ["a/4"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m5-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m5-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m6-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m6-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m6-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m6-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m7-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "marines-full-m7-2", "keys": ["f/4"], "duration": "q", "dotted": true }
+      ],
+      "bass": [
+        { "id": "marines-full-m7-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m7-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m8-1", "keys": ["e/4"], "duration": "h", "tieToNext": true }
+      ],
+      "bass": [
+        { "id": "marines-full-m8-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m8-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m9-1", "keys": ["e/4"], "duration": "8" },
+        { "id": "marines-full-m9-r1", "keys": ["b/4"], "duration": "8", "isRest": true },
+        { "id": "marines-full-m9-2", "keys": ["e/5"], "duration": "8", "dynamic": "mf" },
+        { "id": "marines-full-m9-3", "keys": ["d/5"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m9-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m9-b2", "keys": ["b/1"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m10-1", "keys": ["c/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m10-2", "keys": ["a/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m10-b1", "keys": ["f/2"], "duration": "q" },
+        { "id": "marines-full-m10-b2", "keys": ["c/3", "f/3", "a/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m11-1", "keys": ["c/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m11-2", "keys": ["a/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m11-b1", "keys": ["f/2"], "duration": "q" },
+        { "id": "marines-full-m11-b2", "keys": ["c/3", "f/3", "a/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m12-1", "keys": ["b/4"], "duration": "q", "dotted": true },
+        { "id": "marines-full-m12-2", "keys": ["c/5"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m12-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m12-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m13-1", "keys": ["b/4"], "duration": "q" },
+        { "id": "marines-full-m13-2", "keys": ["e/5"], "duration": "8" },
+        { "id": "marines-full-m13-3", "keys": ["d/5"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m13-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m13-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m14-1", "keys": ["c/5"], "duration": "q" },
+        { "id": "marines-full-m14-2", "keys": ["a/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m14-b1", "keys": ["f/2"], "duration": "q" },
+        { "id": "marines-full-m14-b2", "keys": ["c/3", "f/3", "a/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m15-1", "keys": ["c/5"], "duration": "8" },
+        { "id": "marines-full-m15-2", "keys": ["e/5"], "duration": "q", "dotted": true }
+      ],
+      "bass": [
+        { "id": "marines-full-m15-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m15-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m16-1", "keys": ["b/4"], "duration": "h", "tieToNext": true, "articulations": ["tenuto"] }
+      ],
+      "bass": [
+        { "id": "marines-full-m16-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m16-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m17-1", "keys": ["b/4"], "duration": "8" },
+        { "id": "marines-full-m17-r1", "keys": ["b/4"], "duration": "8", "isRest": true },
+        { "id": "marines-full-m17-2", "keys": ["e/4"], "duration": "8", "dynamic": "f" },
+        { "id": "marines-full-m17-3", "keys": ["g/4"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m17-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m17-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m18-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m18-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m18-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m18-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m19-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m19-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m19-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m19-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m20-1", "keys": ["b/4"], "duration": "q", "dotted": true },
+        { "id": "marines-full-m20-2", "keys": ["e/5"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m20-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m20-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m21-1", "keys": ["b/4"], "duration": "q" },
+        { "id": "marines-full-m21-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "marines-full-m21-3", "keys": ["a/4"], "duration": "8" }
+      ],
+      "bass": [
+        { "id": "marines-full-m21-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m21-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m22-1", "keys": ["b/4"], "duration": "q", "articulations": ["accent"] },
+        { "id": "marines-full-m22-2", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "marines-full-m22-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m22-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m23-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "marines-full-m23-2", "keys": ["f/4"], "duration": "q", "dotted": true }
+      ],
+      "bass": [
+        { "id": "marines-full-m23-b1", "keys": ["b/1"], "duration": "q" },
+        { "id": "marines-full-m23-b2", "keys": ["a/2", "d/3", "f/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m24-1", "keys": ["e/4"], "duration": "h", "dynamic": "ff", "articulations": ["tenuto"] }
+      ],
+      "bass": [
+        { "id": "marines-full-m24-b1", "keys": ["e/2"], "duration": "q" },
+        { "id": "marines-full-m24-b2", "keys": ["b/2", "e/3", "g/3"], "duration": "q" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "marines-full-m25-1", "keys": ["e/4", "g/4", "b/4"], "duration": "h", "articulations": ["fermata"] }
+      ],
+      "bass": [
+        { "id": "marines-full-m25-b1", "keys": ["e/2", "b/2", "e/3"], "duration": "h", "pedalStart": true, "pedalEnd": true, "articulations": ["fermata"] }
+      ]
+    }
+  ],
+  "createdAt": 1790748000000,
+  "updatedAt": 1790748000000
+}

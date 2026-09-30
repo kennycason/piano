@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import type { Accidental, NoteEntry } from '../../models/song';
+import {
+  DEFAULT_SYNTH_CONTROLS,
+  INSTRUMENT_OPTIONS,
+  type InstrumentSound,
+  type SynthControls,
+} from '../../services/playback';
 import './NoteInput.css';
 
 interface NoteInputProps {
@@ -14,6 +20,11 @@ interface NoteInputProps {
   onSessionCommit: () => void;
   onSessionCancel: () => void;
   activePlaybackKeys: string[];
+  instrumentSound: InstrumentSound;
+  synthControls: SynthControls;
+  onInstrumentSoundChange: (sound: InstrumentSound) => void;
+  onSynthControlsChange: (controls: SynthControls) => void;
+  onPreviewNotes: (keys: string[]) => void;
 }
 
 interface PianoKey {
@@ -52,7 +63,15 @@ const ALL_KEYS = buildFullKeyboard();
 const WHITE_KEYS = ALL_KEYS.filter((k) => !k.isBlack);
 const BLACK_KEYS = ALL_KEYS.filter((k) => k.isBlack);
 const TOTAL_WHITE_KEYS = WHITE_KEYS.length;
-const MIDDLE_C_WHITE_INDEX = WHITE_KEYS.findIndex((key) => key.note === 'c/4');
+const SYNTH_CONTROL_DEFINITIONS: ReadonlyArray<{
+  key: keyof SynthControls;
+  label: string;
+}> = [
+  { key: 'volume', label: 'Volume' },
+  { key: 'tone', label: 'Tone' },
+  { key: 'echo', label: 'Echo' },
+  { key: 'sustain', label: 'Length' },
+];
 
 function toPianoKey(key: string, accidental?: Accidental | null): string {
   const [name, octaveText] = key.split('/');
@@ -91,6 +110,11 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   onSessionCommit,
   onSessionCancel,
   activePlaybackKeys,
+  instrumentSound,
+  synthControls,
+  onInstrumentSoundChange,
+  onSynthControlsChange,
+  onPreviewNotes,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => (
     session?.mode === 'edit' && selectedNote && !selectedNote.isRest
@@ -102,11 +126,6 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   const [isChordMode, setIsChordMode] = useState(Boolean(session));
 
   const playingKeys = new Set(activePlaybackKeys);
-  const bassLabelLeft = (MIDDLE_C_WHITE_INDEX / 2 / TOTAL_WHITE_KEYS) * 100;
-  const trebleLabelLeft = (
-    (MIDDLE_C_WHITE_INDEX + (TOTAL_WHITE_KEYS - MIDDLE_C_WHITE_INDEX) / 2)
-    / TOTAL_WHITE_KEYS
-  ) * 100;
 
   const toggleKey = (note: string) => {
     const next = new Set(selectedKeys);
@@ -159,6 +178,45 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   return (
     <div className="note-input">
       <div className="note-input-header">
+        <div className="synth-panel" aria-label="Keyboard synthesizer controls">
+          <span className="synth-title">Keyboard Synth</span>
+          <label className="synth-preset-label">
+            Preset
+            <select
+              className="synth-preset-select"
+              value={instrumentSound}
+              onChange={(event) => onInstrumentSoundChange(event.target.value as InstrumentSound)}
+            >
+              {INSTRUMENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          {SYNTH_CONTROL_DEFINITIONS.map((control) => (
+            <label className="synth-control" key={control.key}>
+              <span>{control.label}</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(synthControls[control.key] * 100)}
+                onChange={(event) => onSynthControlsChange({
+                  ...synthControls,
+                  [control.key]: Number(event.target.value) / 100,
+                })}
+                aria-label={`${control.label} ${Math.round(synthControls[control.key] * 100)} percent`}
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            className="synth-reset-btn"
+            onClick={() => onSynthControlsChange({ ...DEFAULT_SYNTH_CONTROLS })}
+            title="Reset sound controls"
+          >
+            Reset
+          </button>
+        </div>
         <div className="note-input-actions">
           {session && <span className="composer-target">{session.label}</span>}
           <span className="selection-hint">
@@ -198,11 +256,6 @@ export const NoteInput: React.FC<NoteInputProps> = ({
         </div>
       </div>
       <div className="piano-keyboard">
-        {/* Labels positioned above keyboard */}
-        <div className="piano-clef-labels">
-          <span className="clef-label bass-label" style={{ left: `${bassLabelLeft}%` }}>Bass range</span>
-          <span className="clef-label treble-label" style={{ left: `${trebleLabelLeft}%` }}>Treble range</span>
-        </div>
         <div className="piano-keys-area">
           <div className="piano-white-keys">
             {WHITE_KEYS.map((key) => (
@@ -211,6 +264,9 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                 key={key.note}
                 className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''}`}
                 aria-pressed={selectedKeys.has(key.note)}
+                onPointerDown={(event) => {
+                  if (event.button === 0) onPreviewNotes([key.note]);
+                }}
                 onClick={(e) => {
                   if (e.shiftKey || isChordMode || selectedKeys.size > 0) {
                     toggleKey(key.note);
@@ -234,6 +290,9 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                   className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''}`}
                   style={{ left: `${(key.whiteBoundary / TOTAL_WHITE_KEYS) * 100}%` }}
                   aria-pressed={selectedKeys.has(key.note)}
+                  onPointerDown={(event) => {
+                    if (event.button === 0) onPreviewNotes([key.note]);
+                  }}
                   onClick={(e) => {
                     if (e.shiftKey || isChordMode || selectedKeys.size > 0) {
                       toggleKey(key.note);
