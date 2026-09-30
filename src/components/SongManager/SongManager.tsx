@@ -30,11 +30,19 @@ export const SongManager: React.FC<SongManagerProps> = ({
         <div className="song-manager-actions">
           <button type="button" className="sm-btn" onClick={onNewSong}>New</button>
           <button type="button" className="sm-btn" onClick={onExport}>Export</button>
-          <button type="button" className="sm-btn" onClick={() => fileRef.current?.click()}>Import</button>
+          <button
+            type="button"
+            className="sm-btn"
+            onClick={() => fileRef.current?.click()}
+            title="Import a Piano Sheet JSON or MIDI file"
+            aria-label="Import JSON or MIDI"
+          >
+            Import
+          </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".json"
+            accept=".json,.mid,.midi,audio/midi,audio/x-midi"
             style={{ display: 'none' }}
             onChange={(e) => {
               const file = e.target.files?.[0];

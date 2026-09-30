@@ -27,15 +27,20 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 - Full-width 88-key piano input for notes and explicit chord building/editing
 - Five note durations, dotted notes, accidentals, dynamics, and articulations
 - Standard key signatures and per-rest vertical positioning
-- Ties, slurs, pedal markers, repeat markers, and measure management
+- Correct measure-scoped accidentals plus ties and slurs across bar and system boundaries
+- Pedal markers, repeat markers, fermatas, and measure management
 - A playable keyboard synth with four presets plus volume, tone, echo, and note-length controls
-- Playback with pause, resume, seamless whole-song looping, repeats, dynamics, articulation timing, and a moving score cursor
+- Playback with pause, resume, seamless whole-song looping, repeats, sustained pedal, fermata timing, dynamics, articulations, and a moving score cursor
 - Simultaneous score-note highlighting across staves plus live playback lighting on the piano keys
 - Note, chord, rest, and whole-bar copy/paste with undo/redo and keyboard shortcuts
-- Multiple locally saved songs with JSON import/export
+- Multiple locally saved songs with versioned, validated JSON import/export and recovery-safe saves
+- Automatic MIDI import with chord, hand/staff, overlapping-voice, tempo, meter, and key mapping
+- Responsive touch-friendly mobile editing, keyboard-accessible score actions, and non-blocking song deletion with undo
 - Six bundled, editable sample scores for learning and exploring the editor
 
-Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; the three synthesized sounds do not require sample downloads.
+Songs and the selected playback sound are stored in browser `localStorage`. The starter library includes Alouette, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. There is no account, server, or cloud sync yet. Grand-piano samples begin loading when the app opens and are fetched from the Tone.js Salamander sample host; if they are unavailable, playback falls back to Electric Keys. The three synthesized sounds do not require sample downloads.
+
+MIDI files are converted into ordinary editable score notes and are never played directly after import. They are quantized to the nearest sixteenth note; simultaneous notes of equal length become chords, pitches below middle C are assigned to bass, and overlapping parts are retained as independent voices. Secondary-voice timing gaps remain in the score as invisible spacing rests, avoiding piles of redundant rest glyphs without changing playback. The import summary calls out tempo, key, meter, percussion, or quantization compromises; JSON remains the lossless project format.
 
 ## Run locally
 
@@ -60,10 +65,11 @@ The resulting entry point is `/piano/index.html`, with its JavaScript, CSS, and 
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
-There is not yet an automated test suite. The highest-value test coverage to add is listed in [ROADMAP.md](./ROADMAP.md).
+The unit suite covers score timing and accidentals, cross-bar/chord ties, repeat expansion, schema migration and validation, every checked-in song fixture, recovery-safe storage, and multi-track MIDI conversion. GitHub Actions runs lint, tests, and the production build on every push and pull request. Browser-level interaction coverage is the next testing priority.
 
 ## Project map
 
@@ -72,6 +78,7 @@ There is not yet an automated test suite. The highest-value test coverage to add
 - `src/services/renderer.ts` — VexFlow score layout and note hit targets
 - `src/services/playback.ts` — Tone.js instruments, transport scheduling, cursor timing, and playback visualization events
 - `src/services/storage.ts` — local persistence and validated JSON import/export
+- `src/services/midi.ts` — quantized MIDI-to-score conversion and track/voice mapping
 - `src/components/` — transport, notation toolbar, song library, and piano input
 - `songs/` — importable reference scores and regression fixtures
 

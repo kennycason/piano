@@ -3,6 +3,7 @@ import {
   getKeySignatureAccidental,
   getMeasureCapacity,
   getMeasureVoices,
+  notesHaveSamePitches,
 } from '../models/song';
 
 const dynamicToVelocity: Record<Dynamic, number> = {
@@ -40,6 +41,7 @@ export const DEFAULT_SYNTH_CONTROLS: SynthControls = {
 export interface PlaybackCursorState {
   measureIdx: number;
   progress: number;
+  overallProgress: number;
 }
 
 type ToneModule = typeof import('tone');
@@ -61,11 +63,17 @@ interface VisualStart {
   noteId: string;
   measureIdx: number;
   pianoKeys: string[];
+  isRest: boolean;
+}
+
+interface VisualStop {
+  noteId?: string;
+  pianoKeys: string[];
 }
 
 interface VisualEvent {
   starts: VisualStart[];
-  stops: string[];
+  stops: VisualStop[];
 }
 
 function vexKeyToNote(key: string, accidental: string | null | undefined, keySignature: string): string {
@@ -106,11 +114,7 @@ function durationToSeconds(duration: string, tempo: number, dotted?: boolean): n
   return durationInSeconds;
 }
 
-function noteKeysMatch(a: NoteEntry, b: NoteEntry): boolean {
-  return a.keys.length === b.keys.length && a.keys.every((key, index) => key === b.keys[index]);
-}
-
-function getPlaybackOrder(song: Song): number[] {
+export function getPlaybackOrder(song: Song): number[] {
   const order: number[] = [];
   let repeatStart = 0;
 
@@ -135,6 +139,8 @@ export class PlaybackEngine {
   private tonePromise: Promise<ToneModule> | null = null;
   private sampler: import('tone').Sampler | null = null;
   private samplerPromise: Promise<PlaybackOutput> | null = null;
+  private samplerRetryAfter = 0;
+  private fallbackSound: InstrumentSound | null = null;
   private synths = new Map<Exclude<InstrumentSound, 'grand-piano'>, PlaybackOutput>();
   private masterFilter: import('tone').Filter | null = null;
   private masterDelay: import('tone').FeedbackDelay | null = null;
@@ -202,6 +208,16 @@ export class PlaybackEngine {
   private ensureSampler(Tone: ToneModule): Promise<PlaybackOutput> {
     if (!this.samplerPromise) {
       const samplerPromise = new Promise<PlaybackOutput>((resolve, reject) => {
+        let settled = false;
+        const finish = (callback: () => void) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutId);
+          callback();
+        };
+        const timeoutId = setTimeout(() => {
+          finish(() => reject(new Error('Grand piano samples took too long to load')));
+        }, 8_000);
         this.sampler = new Tone.Sampler({
           urls: {
             A0: 'A0.mp3', C1: 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
@@ -215,10 +231,11 @@ export class PlaybackEngine {
           },
           release: 1,
           baseUrl: 'https://tonejs.github.io/audio/salamander/',
-          onload: () => resolve(this.sampler as unknown as PlaybackOutput),
-          onerror: (error) => reject(error),
+          onload: () => finish(() => resolve(this.sampler as unknown as PlaybackOutput)),
+          onerror: (error) => finish(() => reject(error)),
         }).connect(this.ensureMasterChain(Tone));
       }).catch((error: unknown) => {
+        this.samplerRetryAfter = Date.now() + 60_000;
         this.samplerPromise = null;
         this.sampler?.dispose();
         this.sampler = null;
@@ -259,9 +276,29 @@ export class PlaybackEngine {
 
   private async ensureInstrument(sound: InstrumentSound): Promise<PlaybackOutput> {
     const Tone = await this.getTone();
-    return sound === 'grand-piano'
-      ? this.ensureSampler(Tone)
-      : this.ensureSynth(Tone, sound);
+    if (sound !== 'grand-piano') {
+      this.fallbackSound = null;
+      return this.ensureSynth(Tone, sound);
+    }
+    if (Date.now() < this.samplerRetryAfter) {
+      this.fallbackSound = 'electric-keys';
+      return this.ensureSynth(Tone, 'electric-keys');
+    }
+    try {
+      const sampler = await this.ensureSampler(Tone);
+      this.samplerRetryAfter = 0;
+      this.fallbackSound = null;
+      return sampler;
+    } catch {
+      this.fallbackSound = 'electric-keys';
+      return this.ensureSynth(Tone, 'electric-keys');
+    }
+  }
+
+  consumeFallbackSound(): InstrumentSound | null {
+    const fallback = this.fallbackSound;
+    this.fallbackSound = null;
+    return fallback;
   }
 
   async prepare(sound: InstrumentSound): Promise<void> {
@@ -325,13 +362,23 @@ export class PlaybackEngine {
     transport.seconds = 0;
     this.loopEnabled = loop;
 
+    interface ScheduledNote {
+      note: NoteEntry;
+      measureIdx: number;
+      clef: StaffClef;
+      voiceIdx: number;
+      startTime: number;
+      duration: number;
+    }
+
     let time = 0;
-    const currentVelocity = new Map<string, number>();
-    const pedalOn = new Map<string, boolean>();
     const playbackOrder = getPlaybackOrder(song).filter((measureIndex) => measureIndex >= startMeasure);
     const measureDuration = getMeasureCapacity(song.timeSignature) * (60 / song.tempo);
     const visualEvents = new Map<number, VisualEvent>();
     const activeKeyCounts = new Map<string, number>();
+    const activeNoteIds = new Set<string>();
+    const notesByVoice = new Map<string, ScheduledNote[]>();
+    const allScheduledNotes: ScheduledNote[] = [];
     this.cursorSegments = [];
 
     const eventAt = (eventTime: number): VisualEvent => {
@@ -345,87 +392,158 @@ export class PlaybackEngine {
 
     for (const measureIndex of playbackOrder) {
       const measure = song.measures[measureIndex];
-      this.cursorSegments.push({
-        measureIdx: measureIndex,
-        startTime: time,
-        endTime: time + measureDuration,
-      });
+      const rawNotes: Array<ScheduledNote & { rawStart: number; rawDuration: number }> = [];
+      const fermataPoints = new Map<number, number>();
 
       for (const clef of ['treble', 'bass'] as StaffClef[]) {
         const voices = getMeasureVoices(measure, clef);
-        for (let voiceIdx = 0; voiceIdx < voices.length; voiceIdx++) {
-          const notes = voices[voiceIdx];
-          const voiceKey = `${clef}:${voiceIdx}`;
-          let voiceTime = time;
-          if (!currentVelocity.has(voiceKey)) currentVelocity.set(voiceKey, 0.65);
-          if (!pedalOn.has(voiceKey)) pedalOn.set(voiceKey, false);
-
-          for (let noteIndex = 0; noteIndex < notes.length; noteIndex++) {
-            const note = notes[noteIndex];
-            const duration = durationToSeconds(note.duration, song.tempo, note.dotted);
-            if (note.dynamic) currentVelocity.set(voiceKey, dynamicToVelocity[note.dynamic]);
-            if (note.pedalStart) pedalOn.set(voiceKey, true);
-
-            let soundingDuration = duration;
-            let tieIndex = noteIndex;
-            while (notes[tieIndex]?.tieToNext && notes[tieIndex + 1] && noteKeysMatch(note, notes[tieIndex + 1])) {
-              tieIndex++;
-              soundingDuration += durationToSeconds(notes[tieIndex].duration, song.tempo, notes[tieIndex].dotted);
-            }
-
-            const isTieContinuation = noteIndex > 0
-              && notes[noteIndex - 1].tieToNext
-              && noteKeysMatch(notes[noteIndex - 1], note);
-            const toneNotes = note.keys.map((key, index) => (
-              vexKeyToNote(key, note.accidentals?.[index], song.keySignature)
-            ));
-            const pianoKeys = toneNotes.map(toneNoteToPianoKey);
-            const hasStaccato = note.articulations?.includes('staccato');
-            const hasTenuto = note.articulations?.includes('tenuto');
-            const hasFermata = note.articulations?.includes('fermata');
-            const hasAccent = note.articulations?.includes('accent');
-            const durationFactor = hasStaccato
-              ? 0.3
-              : hasFermata
-                ? 1.5
-                : hasTenuto
-                  ? 0.98
-                  : pedalOn.get(voiceKey)
-                    ? 1.2
-                    : 0.9;
-            const actualDuration = soundingDuration * durationFactor;
-            const velocity = Math.min(
-              1,
-              (currentVelocity.get(voiceKey) ?? 0.65) * (hasAccent ? 1.18 : 1),
-            );
-
-            eventAt(voiceTime).starts.push({
-              noteId: note.id,
+        voices.forEach((notes, voiceIdx) => {
+          let rawStart = 0;
+          notes.forEach((note) => {
+            const rawDuration = durationToSeconds(note.duration, song.tempo, note.dotted);
+            rawNotes.push({
+              note,
               measureIdx: measureIndex,
-              pianoKeys: !note.isRest && !isTieContinuation ? pianoKeys : [],
+              clef,
+              voiceIdx,
+              startTime: 0,
+              duration: rawDuration,
+              rawStart,
+              rawDuration,
             });
-            if (!note.isRest && !isTieContinuation) {
-              eventAt(voiceTime + actualDuration).stops.push(...pianoKeys);
-              transport.schedule((scheduledTime) => {
-                if (this.state !== 'playing') return;
-                this.activeOutput?.triggerAttackRelease(
-                  toneNotes,
-                  actualDuration,
-                  scheduledTime,
-                  velocity,
-                );
-              }, voiceTime);
+            if (note.articulations?.includes('fermata')) {
+              const fermataEnd = rawStart + rawDuration;
+              fermataPoints.set(
+                fermataEnd,
+                Math.max(fermataPoints.get(fermataEnd) ?? 0, rawDuration * 0.5),
+              );
             }
-
-            if (note.pedalEnd) pedalOn.set(voiceKey, false);
-            voiceTime += duration;
-          }
-        }
+            rawStart += rawDuration;
+          });
+        });
       }
 
-      time += measureDuration;
+      const sortedFermataPoints = [...fermataPoints.entries()].sort(([a], [b]) => a - b);
+      const delayBefore = (rawStart: number) => sortedFermataPoints.reduce(
+        (delay, [fermataEnd, extra]) => fermataEnd <= rawStart + 1e-9 ? delay + extra : delay,
+        0,
+      );
+      const extraMeasureTime = sortedFermataPoints.reduce((sum, [, extra]) => sum + extra, 0);
+      const playedMeasureDuration = measureDuration + extraMeasureTime;
+      this.cursorSegments.push({
+        measureIdx: measureIndex,
+        startTime: time,
+        endTime: time + playedMeasureDuration,
+      });
+
+      rawNotes.forEach((raw) => {
+        const hasFermata = raw.note.articulations?.includes('fermata');
+        const scheduled: ScheduledNote = {
+          note: raw.note,
+          measureIdx: raw.measureIdx,
+          clef: raw.clef,
+          voiceIdx: raw.voiceIdx,
+          startTime: time + raw.rawStart + delayBefore(raw.rawStart),
+          duration: raw.rawDuration * (hasFermata ? 1.5 : 1),
+        };
+        const voiceKey = `${raw.clef}:${raw.voiceIdx}`;
+        const voiceNotes = notesByVoice.get(voiceKey) ?? [];
+        voiceNotes.push(scheduled);
+        notesByVoice.set(voiceKey, voiceNotes);
+        allScheduledNotes.push(scheduled);
+      });
+
+      time += playedMeasureDuration;
     }
 
+    // Pedal is global to the piano, not scoped to a staff voice. Build its
+    // intervals first so every note that starts under the pedal can ring until
+    // the matching release marker.
+    const pedalIntervals: Array<{ start: number; end: number }> = [];
+    let pedalStartTime: number | null = null;
+    [...allScheduledNotes]
+      .sort((a, b) => a.startTime - b.startTime)
+      .forEach((entry) => {
+        if (entry.note.pedalStart && pedalStartTime === null) pedalStartTime = entry.startTime;
+        if (entry.note.pedalEnd && pedalStartTime !== null) {
+          pedalIntervals.push({ start: pedalStartTime, end: entry.startTime + entry.duration });
+          pedalStartTime = null;
+        }
+      });
+    if (pedalStartTime !== null) pedalIntervals.push({ start: pedalStartTime, end: time });
+    const pedalReleaseFor = (startTime: number) => pedalIntervals.find((interval) => (
+      startTime >= interval.start - 1e-9 && startTime < interval.end - 1e-9
+    ))?.end;
+
+    notesByVoice.forEach((notes) => {
+      let currentVelocity = 0.65;
+      notes.forEach((entry, noteIndex) => {
+        const { note } = entry;
+        if (note.dynamic) currentVelocity = dynamicToVelocity[note.dynamic];
+        const previous = notes[noteIndex - 1];
+        const isTieContinuation = Boolean(
+          previous?.note.tieToNext &&
+          notesHaveSamePitches(previous.note, note, song.keySignature),
+        );
+        let tieIndex = noteIndex;
+        while (
+          notes[tieIndex]?.note.tieToNext &&
+          notes[tieIndex + 1] &&
+          notesHaveSamePitches(note, notes[tieIndex + 1].note, song.keySignature)
+        ) {
+          tieIndex++;
+        }
+        const tiedDuration = notes[tieIndex].startTime + notes[tieIndex].duration - entry.startTime;
+        const hasStaccato = note.articulations?.includes('staccato');
+        const hasTenuto = note.articulations?.includes('tenuto');
+        const hasAccent = note.articulations?.includes('accent');
+        const durationFactor = tieIndex > noteIndex
+          ? 1
+          : hasStaccato
+            ? 0.3
+            : hasTenuto
+              ? 0.98
+              : 0.9;
+        const pedalRelease = pedalReleaseFor(entry.startTime);
+        const actualDuration = Math.max(
+          tiedDuration * durationFactor,
+          pedalRelease ? pedalRelease - entry.startTime : 0,
+        );
+        const velocity = Math.min(1, currentVelocity * (hasAccent ? 1.18 : 1));
+        const toneNotes = note.keys.map((key, index) => (
+          vexKeyToNote(key, note.accidentals?.[index], song.keySignature)
+        ));
+        const pianoKeys = toneNotes.map(toneNoteToPianoKey);
+
+        eventAt(entry.startTime).starts.push({
+          noteId: note.id,
+          measureIdx: entry.measureIdx,
+          pianoKeys: !note.isRest && !isTieContinuation ? pianoKeys : [],
+          isRest: Boolean(note.isRest),
+        });
+
+        if (!note.isRest) {
+          const visualEnd = pedalRelease
+            ? Math.max(entry.startTime + entry.duration, pedalRelease)
+            : entry.startTime + entry.duration;
+          eventAt(visualEnd).stops.push({ noteId: note.id, pianoKeys: [] });
+        }
+        if (!note.isRest && !isTieContinuation) {
+          eventAt(entry.startTime + actualDuration).stops.push({ pianoKeys });
+          transport.schedule((scheduledTime) => {
+            if (this.state !== 'playing') return;
+            this.activeOutput?.triggerAttackRelease(
+              toneNotes,
+              actualDuration,
+              scheduledTime,
+              velocity,
+            );
+          }, entry.startTime);
+        }
+      });
+    });
+
+    let visualMeasureIdx = playbackOrder[0] ?? 0;
     [...visualEvents.entries()]
       .sort(([a], [b]) => a - b)
       .forEach(([eventKey, event]) => {
@@ -434,24 +552,26 @@ export class PlaybackEngine {
           if (this.state !== 'playing') return;
           Tone.getDraw().schedule(() => {
             if (this.state !== 'playing' || playGeneration !== this.generation) return;
-            for (const key of event.stops) {
-              const count = (activeKeyCounts.get(key) ?? 0) - 1;
-              if (count > 0) activeKeyCounts.set(key, count);
-              else activeKeyCounts.delete(key);
+            for (const stop of event.stops) {
+              if (stop.noteId) activeNoteIds.delete(stop.noteId);
+              for (const key of stop.pianoKeys) {
+                const count = (activeKeyCounts.get(key) ?? 0) - 1;
+                if (count > 0) activeKeyCounts.set(key, count);
+                else activeKeyCounts.delete(key);
+              }
             }
             for (const start of event.starts) {
+              visualMeasureIdx = start.measureIdx;
+              if (!start.isRest) activeNoteIds.add(start.noteId);
               for (const key of start.pianoKeys) {
                 activeKeyCounts.set(key, (activeKeyCounts.get(key) ?? 0) + 1);
               }
             }
-            if (event.stops.length > 0 || event.starts.some((start) => start.pianoKeys.length > 0)) {
+            if (event.stops.some((stop) => stop.pianoKeys.length > 0) || event.starts.some((start) => start.pianoKeys.length > 0)) {
               this.onActiveKeysCallback?.([...activeKeyCounts.keys()]);
             }
-            if (event.starts.length > 0) {
-              this.onNotesCallback?.(
-                event.starts[0].measureIdx,
-                event.starts.map((start) => start.noteId),
-              );
+            if (event.starts.length > 0 || event.stops.some((stop) => stop.noteId)) {
+              this.onNotesCallback?.(visualMeasureIdx, [...activeNoteIds]);
             }
           }, scheduledTime);
         }, eventTime);
@@ -534,6 +654,9 @@ export class PlaybackEngine {
       progress: Math.max(0, Math.min(1, (
         seconds - segment.startTime
       ) / Math.max(0.001, segment.endTime - segment.startTime))),
+      overallProgress: this.loopEnd > 0
+        ? Math.max(0, Math.min(1, seconds / this.loopEnd))
+        : 0,
     };
   }
 

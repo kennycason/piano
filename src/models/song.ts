@@ -4,6 +4,7 @@ export type Dynamic = 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff';
 export type StaffClef = 'treble' | 'bass';
 export type StaffLayout = 'grand' | 'treble-only' | 'bass-only';
 export type SlurPlacement = 'above' | 'below';
+export const CURRENT_SONG_SCHEMA_VERSION = 1;
 export const KEY_SIGNATURES = [
   'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#',
   'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb',
@@ -19,6 +20,8 @@ export interface NoteEntry {
   keys: string[];            // e.g. ["c/4", "e/4"] for chords
   duration: NoteDuration;
   isRest?: boolean;
+  /** Silent timing placeholder used to align imported secondary voices without engraving another rest. */
+  isSpacer?: boolean;
   dotted?: boolean;
   /** Vertical rest adjustment in staff-line units; positive values move up. */
   restOffset?: number;
@@ -49,6 +52,7 @@ export interface Measure {
 }
 
 export interface Song {
+  schemaVersion: number;
   id: string;
   title: string;
   tempo: number;
@@ -66,7 +70,9 @@ export interface Song {
 }
 
 export function createId(): string {
-  return Math.random().toString(36).substring(2, 9);
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 export function createDefaultNote(duration: NoteDuration = 'q', clef: StaffClef = 'treble'): NoteEntry {
@@ -183,8 +189,125 @@ export function getKeySignatureAccidental(
   return keySignature.includes('b') || keySignature === 'F' ? 'b' : '#';
 }
 
+/**
+ * Return the accidental that determines a note's sounding pitch. A null value
+ * means the natural pitch; `n` is normalized to null after it has cancelled a
+ * key-signature or measure accidental.
+ */
+export function getSoundingAccidental(
+  note: NoteEntry,
+  keySignature: string,
+  keyIndex: number,
+): '#' | 'b' | null {
+  const key = note.keys[keyIndex] ?? '';
+  const pitchName = key.split('/')[0] ?? '';
+  const explicit = note.accidentals?.[keyIndex];
+  if (explicit === 'n') return null;
+  if (explicit === '#' || explicit === 'b') return explicit;
+
+  const embedded = pitchName.slice(1);
+  if (embedded === '#' || embedded === 'b') return embedded;
+  const signature = getKeySignatureAccidental(keySignature, pitchName);
+  return signature === '#' || signature === 'b' ? signature : null;
+}
+
+export function getNoteMidiPitches(note: NoteEntry, keySignature: string): number[] {
+  const pitchClasses: Record<string, number> = {
+    c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
+  };
+  return note.keys.map((key, index) => {
+    const [pitchName, octaveText] = key.split('/');
+    const base = pitchClasses[pitchName?.[0]?.toLowerCase()] ?? 0;
+    const accidental = getSoundingAccidental(note, keySignature, index);
+    const accidentalOffset = accidental === '#' ? 1 : accidental === 'b' ? -1 : 0;
+    return (Number(octaveText) + 1) * 12 + base + accidentalOffset;
+  });
+}
+
+export function notesHaveSamePitches(
+  first: NoteEntry,
+  second: NoteEntry,
+  keySignature: string,
+): boolean {
+  if (first.isRest || second.isRest || first.keys.length !== second.keys.length) return false;
+  const firstPitches = getNoteMidiPitches(first, keySignature).sort((a, b) => a - b);
+  const secondPitches = getNoteMidiPitches(second, keySignature).sort((a, b) => a - b);
+  return firstPitches.every((pitch, index) => pitch === secondPitches[index]);
+}
+
+export function getTieIndexes(
+  first: NoteEntry,
+  second: NoteEntry,
+  keySignature: string,
+): { firstIndexes: number[]; lastIndexes: number[] } {
+  if (first.isRest || second.isRest) return { firstIndexes: [], lastIndexes: [] };
+  const firstPitches = getNoteMidiPitches(first, keySignature);
+  const secondPitches = getNoteMidiPitches(second, keySignature);
+  const claimedLastIndexes = new Set<number>();
+  const firstIndexes: number[] = [];
+  const lastIndexes: number[] = [];
+
+  firstPitches.forEach((pitch, firstIndex) => {
+    const lastIndex = secondPitches.findIndex((candidate, index) => (
+      candidate === pitch && !claimedLastIndexes.has(index)
+    ));
+    if (lastIndex < 0) return;
+    claimedLastIndexes.add(lastIndex);
+    firstIndexes.push(firstIndex);
+    lastIndexes.push(lastIndex);
+  });
+  return { firstIndexes, lastIndexes };
+}
+
+/**
+ * Calculate the accidental glyphs that should be printed in one measure.
+ * Stored notes describe sounding pitch; this pass applies the normal notation
+ * rule that an accidental remains in force for the same staff position until
+ * the barline.
+ */
+export function getMeasureAccidentalDisplay(
+  measure: Measure,
+  clef: StaffClef,
+  keySignature: string,
+): Map<string, (Accidental | null)[]> {
+  const events: Array<{ note: NoteEntry; beat: number; voiceIdx: number }> = [];
+  getMeasureVoices(measure, clef).forEach((voice, voiceIdx) => {
+    let beat = 0;
+    voice.forEach((note) => {
+      events.push({ note, beat, voiceIdx });
+      beat += getNoteBeatValue(note);
+    });
+  });
+  events.sort((a, b) => a.beat - b.beat || a.voiceIdx - b.voiceIdx);
+
+  const activeAccidentals = new Map<string, '#' | 'b' | null>();
+  const displayByNoteId = new Map<string, (Accidental | null)[]>();
+  events.forEach(({ note }) => {
+    if (note.isRest) {
+      displayByNoteId.set(note.id, note.keys.map(() => null));
+      return;
+    }
+    const display = note.keys.map((key, keyIndex): Accidental | null => {
+      const [pitchName, octaveText] = key.split('/');
+      const positionKey = `${pitchName?.[0]?.toLowerCase()}/${octaveText}`;
+      const signature = getKeySignatureAccidental(keySignature, pitchName);
+      const initial = signature === '#' || signature === 'b' ? signature : null;
+      const previous = activeAccidentals.has(positionKey)
+        ? activeAccidentals.get(positionKey) ?? null
+        : initial;
+      const sounding = getSoundingAccidental(note, keySignature, keyIndex);
+      activeAccidentals.set(positionKey, sounding);
+      if (note.suppressAccidentals || sounding === previous) return null;
+      return sounding ?? 'n';
+    });
+    displayByNoteId.set(note.id, display);
+  });
+  return displayByNoteId;
+}
+
 export function createDefaultSong(): Song {
   return {
+    schemaVersion: CURRENT_SONG_SCHEMA_VERSION,
     id: createId(),
     title: 'Untitled',
     tempo: 120,

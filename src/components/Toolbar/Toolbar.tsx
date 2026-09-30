@@ -22,8 +22,6 @@ interface ToolbarProps {
   onRestModeToggle: () => void;
   isDotted: boolean;
   onDottedToggle: () => void;
-  onRestMove: (direction: -1 | 1) => void;
-  onRestReset: () => void;
   onAccidental: (a: Accidental) => void;
   onDynamic: (d: Dynamic) => void;
   onArticulation: (a: Articulation) => void;
@@ -48,6 +46,8 @@ interface ToolbarProps {
   canPaste: boolean;
   canDeleteMeasure: boolean;
   selectedNote: NoteEntry | null;
+  selectedChordToneIndex: number;
+  onSelectedChordToneIndexChange: (index: number) => void;
 }
 
 const durationIcons: Record<NoteDuration, React.FC> = {
@@ -104,8 +104,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onRestModeToggle,
   isDotted,
   onDottedToggle,
-  onRestMove,
-  onRestReset,
   onAccidental,
   onDynamic,
   onArticulation,
@@ -130,8 +128,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   canPaste,
   canDeleteMeasure,
   selectedNote,
+  selectedChordToneIndex,
+  onSelectedChordToneIndexChange,
 }) => {
-  const hasAccidental = (a: Accidental) => selectedNote?.accidentals?.some((x) => x === a) ?? false;
+  const hasAccidental = (a: Accidental) => (
+    selectedNote?.accidentals?.[selectedChordToneIndex] === a
+  );
   const hasDynamic = (d: Dynamic) => selectedNote?.dynamic === d;
   const hasArticulation = (a: Articulation) => selectedNote?.articulations?.includes(a) ?? false;
 
@@ -197,15 +199,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </Tip>
             );
           })}
-          <Tip text="Rest - Insert a silence (R)">
+          <Tip text={`${durationNames[selectedDuration].replace('note', 'rest')} - Insert silence (R). Move a selected rest with ↑/↓.`}>
             <button
               type="button"
               className={`toolbar-btn note-icon-btn ${isRestMode ? 'active' : ''}`}
               onClick={onRestModeToggle}
-              aria-label="Rest mode"
+              aria-label={`${durationNames[selectedDuration].replace('note', 'rest')} mode`}
               aria-pressed={isRestMode}
             >
-              <RestIcon />
+              <RestIcon duration={selectedDuration} />
             </button>
           </Tip>
           <Tip text="Dotted note - 1.5x duration (.)">
@@ -222,62 +224,36 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       </div>
 
-      {/* Rest layout */}
-      <div className="toolbar-section">
-        <span className="toolbar-label">Rest position</span>
-        <div className="toolbar-group">
-          <Tip text="Move the selected rest up">
-            <button
-              type="button"
-              className="toolbar-btn rest-position-btn"
-              onClick={() => onRestMove(1)}
-              disabled={!selectedNote?.isRest}
-              aria-label="Move selected rest up"
-            >
-              Rest ↑
-            </button>
-          </Tip>
-          <Tip text="Move the selected rest down">
-            <button
-              type="button"
-              className="toolbar-btn rest-position-btn"
-              onClick={() => onRestMove(-1)}
-              disabled={!selectedNote?.isRest}
-              aria-label="Move selected rest down"
-            >
-              Rest ↓
-            </button>
-          </Tip>
-          <Tip text="Return the selected rest to its voice's default position">
-            <button
-              type="button"
-              className="toolbar-btn rest-position-btn"
-              onClick={onRestReset}
-              disabled={!selectedNote?.isRest || !selectedNote.restOffset}
-              aria-label="Reset selected rest position"
-            >
-              Reset
-            </button>
-          </Tip>
-        </div>
-      </div>
-
       {/* Accidentals */}
       <div className="toolbar-section">
         <span className="toolbar-label">Accidentals</span>
         <div className="toolbar-group">
+          {selectedNote && !selectedNote.isRest && selectedNote.keys.length > 1 && (
+            <label className="chord-tone-picker">
+              <span className="sr-only">Chord tone</span>
+              <select
+                value={Math.min(selectedChordToneIndex, selectedNote.keys.length - 1)}
+                onChange={(event) => onSelectedChordToneIndexChange(Number(event.target.value))}
+                aria-label="Chord tone to alter"
+              >
+                {selectedNote.keys.map((key, index) => (
+                  <option key={`${key}-${index}`} value={index}>{key.replace('/', '')}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <Tip text="Sharp - Raise pitch by a half step">
-            <button type="button" className={`toolbar-btn ${hasAccidental('#') ? 'active' : ''}`} onClick={() => onAccidental('#')} disabled={!selectedNote} aria-label="Sharp">
+            <button type="button" className={`toolbar-btn ${hasAccidental('#') ? 'active' : ''}`} onClick={() => onAccidental('#')} disabled={!selectedNote || selectedNote.isRest} aria-label="Sharp">
               <NotationGlyph glyph={NotationGlyphs.accidentalSharp} className="accidental-glyph" />
             </button>
           </Tip>
           <Tip text="Flat - Lower pitch by a half step">
-            <button type="button" className={`toolbar-btn ${hasAccidental('b') ? 'active' : ''}`} onClick={() => onAccidental('b')} disabled={!selectedNote} aria-label="Flat">
+            <button type="button" className={`toolbar-btn ${hasAccidental('b') ? 'active' : ''}`} onClick={() => onAccidental('b')} disabled={!selectedNote || selectedNote.isRest} aria-label="Flat">
               <NotationGlyph glyph={NotationGlyphs.accidentalFlat} className="accidental-glyph" />
             </button>
           </Tip>
           <Tip text="Natural - Cancel sharp or flat">
-            <button type="button" className={`toolbar-btn ${hasAccidental('n') ? 'active' : ''}`} onClick={() => onAccidental('n')} disabled={!selectedNote} aria-label="Natural">
+            <button type="button" className={`toolbar-btn ${hasAccidental('n') ? 'active' : ''}`} onClick={() => onAccidental('n')} disabled={!selectedNote || selectedNote.isRest} aria-label="Natural">
               <NotationGlyph glyph={NotationGlyphs.accidentalNatural} className="accidental-glyph" />
             </button>
           </Tip>
@@ -363,12 +339,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <span className="toolbar-label">Structure</span>
         <div className="toolbar-group">
           <Tip text="Repeat start - Begin repeat section on this measure">
-            <button type="button" className="toolbar-btn" onClick={onRepeatStart}>
+            <button type="button" className="toolbar-btn" onClick={onRepeatStart} aria-label="Toggle repeat start on selected bar">
               |:
             </button>
           </Tip>
           <Tip text="Repeat end - End repeat section on this measure">
-            <button type="button" className="toolbar-btn" onClick={onRepeatEnd}>
+            <button type="button" className="toolbar-btn" onClick={onRepeatEnd} aria-label="Toggle repeat end on selected bar">
               :|
             </button>
           </Tip>

@@ -25,6 +25,8 @@ import {
   replaceMeasureVoice,
   mapMeasureNotes,
   getMeasureNoteIds,
+  getKeySignatureAccidental,
+  notesHaveSamePitches,
 } from './models/song';
 import {
   loadSongs,
@@ -43,6 +45,7 @@ import {
   type InstrumentSound,
   type SynthControls,
 } from './services/playback';
+import { importSongFromMidi } from './services/midi';
 import './App.css';
 
 const MAX_HISTORY = 50;
@@ -50,6 +53,7 @@ const PITCH_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
 const INSTRUMENT_STORAGE_KEY = 'piano_sheet_instrument';
 const SYNTH_CONTROLS_STORAGE_KEY = 'piano_sheet_synth_controls';
 type PlayState = 'stopped' | 'loading' | 'playing' | 'paused';
+type SaveStatus = 'saved' | 'saving' | 'error';
 interface NoteLocation {
   measureIdx: number;
   noteIdx: number;
@@ -151,7 +155,7 @@ function staffYToKey(y: number, staffTopY: number, displayClef: StaffClef): stri
   return `${PITCH_NAMES[pitchIndex]}/${octave}`;
 }
 
-function normalizePianoKeys(keys: string[]): {
+function normalizePianoKeys(keys: string[], keySignature: string): {
   keys: string[];
   accidentals?: (Accidental | null)[];
 } {
@@ -163,6 +167,7 @@ function normalizePianoKeys(keys: string[]): {
     const name = key.split('/')[0];
     if (name.includes('#')) return '#';
     if (name.includes('b')) return 'b';
+    if (getKeySignatureAccidental(keySignature, name)) return 'n';
     return null;
   });
   return {
@@ -182,10 +187,14 @@ function createInitialLibrary(): { songs: Song[]; currentSong: Song } {
 }
 
 function getInitialInstrument(): InstrumentSound {
-  const saved = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
-  return saved === 'electric-keys' || saved === 'warm-pad' || saved === 'music-box'
-    ? saved
-    : 'grand-piano';
+  try {
+    const saved = localStorage.getItem(INSTRUMENT_STORAGE_KEY);
+    return saved === 'electric-keys' || saved === 'warm-pad' || saved === 'music-box'
+      ? saved
+      : 'grand-piano';
+  } catch {
+    return 'grand-piano';
+  }
 }
 
 function getInitialSynthControls(): SynthControls {
@@ -215,6 +224,7 @@ function App() {
   const [currentSong, setCurrentSong] = useState<Song>(initialLibrary.currentSong);
 
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [chordToneSelection, setChordToneSelection] = useState({ noteId: null as string | null, index: 0 });
   const [selectedDuration, setSelectedDuration] = useState<NoteDuration>('q');
   const [isRestMode, setIsRestMode] = useState(false);
   const [isDotted, setIsDotted] = useState(false);
@@ -223,6 +233,7 @@ function App() {
   const [synthControls, setSynthControls] = useState<SynthControls>(getInitialSynthControls);
   const [loopEnabled, setLoopEnabled] = useState(false);
   const [currentPlayMeasure, setCurrentPlayMeasure] = useState(0);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
   const [editorMessage, setEditorMessage] = useState<string | null>(null);
   const [slurToolActive, setSlurToolActive] = useState(false);
   const [pendingSlurStartId, setPendingSlurStartId] = useState<string | null>(null);
@@ -233,10 +244,20 @@ function App() {
   const [highlightedNoteIds, setHighlightedNoteIds] = useState<string[]>([]);
   const [activePlaybackKeys, setActivePlaybackKeys] = useState<string[]>([]);
   const [editorClipboard, setEditorClipboard] = useState<EditorClipboard | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const [pendingDeleteSongId, setPendingDeleteSongId] = useState<string | null>(null);
+  const [deletedSongUndo, setDeletedSongUndo] = useState<{ song: Song; wasCurrent: boolean } | null>(null);
 
   // Undo/redo history
   const [undoStack, setUndoStack] = useState<Song[]>([]);
   const [redoStack, setRedoStack] = useState<Song[]>([]);
+
+  const selectedChordToneIndex = chordToneSelection.noteId === selectedNoteId
+    ? chordToneSelection.index
+    : 0;
+  const setSelectedChordToneIndex = useCallback((index: number) => {
+    setChordToneSelection({ noteId: selectedNoteId, index });
+  }, [selectedNoteId]);
 
   const scoreRef = useRef<HTMLDivElement>(null);
   const currentSongRef = useRef(currentSong);
@@ -248,14 +269,48 @@ function App() {
   const composerBaseSongRef = useRef<Song | null>(null);
   const provisionalNoteIdRef = useRef<string | null>(null);
   const playbackAnimationRef = useRef<number | null>(null);
+  const lastPlaybackProgressUpdateRef = useRef(0);
+  const highlightedNoteIdsRef = useRef<string[]>([]);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  const stopPlaybackForEdit = useCallback(() => {
+    if (playbackEngine.getState() === 'stopped') return;
+    playbackEngine.stop();
+    setPlayState('stopped');
+    setHighlightedNoteIds([]);
+    setActivePlaybackKeys([]);
+    setCurrentPlayMeasure(0);
+    setPlaybackProgress(0);
+  }, []);
 
   useEffect(() => {
     currentSongRef.current = currentSong;
   }, [currentSong]);
 
   useEffect(() => {
-    saveSong(initialLibrary.currentSong);
-    setCurrentSongId(initialLibrary.currentSong.id);
+    highlightedNoteIdsRef.current = highlightedNoteIds;
+    const activeIds = new Set(highlightedNoteIds);
+    scoreRef.current?.querySelectorAll<SVGGElement>('[data-note-id]').forEach((element) => {
+      element.classList.toggle(
+        'playback-active-note',
+        activeIds.has(element.getAttribute('data-note-id') ?? ''),
+      );
+    });
+  }, [highlightedNoteIds]);
+
+  useEffect(() => {
+    let active = true;
+    try {
+      saveSong(initialLibrary.currentSong);
+      setCurrentSongId(initialLibrary.currentSong.id);
+    } catch (error) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setSaveStatus('error');
+        setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      });
+    }
+    return () => { active = false; };
   }, [initialLibrary]);
 
   const findNoteLocation = useCallback(
@@ -275,6 +330,24 @@ function App() {
     [currentSong]
   );
 
+  const findNextNoteLocation = useCallback((location: NoteLocation): NoteLocation | null => {
+    const currentVoice = getMeasureVoice(
+      currentSong.measures[location.measureIdx],
+      location.clef,
+      location.voiceIdx,
+    );
+    if (currentVoice[location.noteIdx + 1]) {
+      return { ...location, noteIdx: location.noteIdx + 1 };
+    }
+    for (let measureIdx = location.measureIdx + 1; measureIdx < currentSong.measures.length; measureIdx++) {
+      const voice = getMeasureVoice(currentSong.measures[measureIdx], location.clef, location.voiceIdx);
+      if (voice.length > 0) {
+        return { measureIdx, noteIdx: 0, clef: location.clef, voiceIdx: location.voiceIdx };
+      }
+    }
+    return null;
+  }, [currentSong]);
+
   const getSelectedNote = useCallback((): NoteEntry | null => {
     if (!selectedNoteId) return null;
     const loc = findNoteLocation(selectedNoteId);
@@ -293,34 +366,61 @@ function App() {
       if (next === currentSong) return;
 
       const updatedSong = { ...next, updatedAt: Date.now() };
+      stopPlaybackForEdit();
+      setSaveStatus('saving');
+      try {
+        saveSong(updatedSong);
+      } catch (error) {
+        setSaveStatus('error');
+        setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+        return;
+      }
       setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
       setRedoStack([]);
       setCurrentSong(updatedSong);
-      saveSong(updatedSong);
       setSongs(loadSongs());
+      setSaveStatus('saved');
     },
-    [currentSong]
+    [currentSong, stopPlaybackForEdit]
   );
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
+    stopPlaybackForEdit();
     const previousSong = { ...undoStack[undoStack.length - 1], updatedAt: Date.now() };
+    setSaveStatus('saving');
+    try {
+      saveSong(previousSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
     setUndoStack(undoStack.slice(0, -1));
     setRedoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
     setCurrentSong(previousSong);
-    saveSong(previousSong);
     setSongs(loadSongs());
-  }, [currentSong, undoStack]);
+    setSaveStatus('saved');
+  }, [currentSong, undoStack, stopPlaybackForEdit]);
 
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0) return;
+    stopPlaybackForEdit();
     const nextSong = { ...redoStack[redoStack.length - 1], updatedAt: Date.now() };
+    setSaveStatus('saving');
+    try {
+      saveSong(nextSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
     setRedoStack(redoStack.slice(0, -1));
     setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
     setCurrentSong(nextSong);
-    saveSong(nextSong);
     setSongs(loadSongs());
-  }, [currentSong, redoStack]);
+    setSaveStatus('saved');
+  }, [currentSong, redoStack, stopPlaybackForEdit]);
 
   const modifySelectedNote = useCallback(
     (modifier: (note: NoteEntry) => NoteEntry) => {
@@ -377,12 +477,19 @@ function App() {
           container,
           currentSong,
           selectedNoteId,
-          new Set(highlightedNoteIds),
+          null,
           container.clientWidth - 40,
           selectedBarTarget,
         );
         noteMapRef.current = result.noteElements;
         measureRegionsRef.current = result.measureRegions;
+        const activeIds = new Set(highlightedNoteIdsRef.current);
+        container.querySelectorAll<SVGGElement>('[data-note-id]').forEach((element) => {
+          element.classList.toggle(
+            'playback-active-note',
+            activeIds.has(element.getAttribute('data-note-id') ?? ''),
+          );
+        });
       });
     };
 
@@ -393,7 +500,7 @@ function App() {
       cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
     };
-  }, [currentSong, selectedNoteId, highlightedNoteIds, selectedBarTarget]);
+  }, [currentSong, selectedNoteId, selectedBarTarget]);
 
   const clearPlaybackCursor = useCallback(() => {
     scoreRef.current
@@ -438,7 +545,14 @@ function App() {
 
     const tick = () => {
       const cursor = playbackEngine.getCursorState();
-      if (cursor) drawPlaybackCursor(cursor.measureIdx, cursor.progress);
+      if (cursor) {
+        drawPlaybackCursor(cursor.measureIdx, cursor.progress);
+        const now = performance.now();
+        if (now - lastPlaybackProgressUpdateRef.current >= 80) {
+          lastPlaybackProgressUpdateRef.current = now;
+          setPlaybackProgress(cursor.overallProgress);
+        }
+      }
       if (playState === 'playing') {
         playbackAnimationRef.current = requestAnimationFrame(tick);
       }
@@ -748,6 +862,24 @@ function App() {
     setEditorMessage(`Adding to bar ${target.measureIdx + 1}, ${voiceLabel}: piano keys update the bar live. Press Enter to finish or Cancel to restore it.`);
   }, [currentSong]);
 
+  const addLowerVoice = useCallback((target: ScoreTarget) => {
+    const lowerVoiceTarget = { ...target, voiceIdx: 1 };
+    updateSong((song) => {
+      const measures = song.measures.map((measure) => ({ ...measure }));
+      measures[target.measureIdx] = replaceMeasureVoice(
+        measures[target.measureIdx],
+        target.clef,
+        1,
+        getMeasureVoice(measures[target.measureIdx], target.clef, 1),
+      );
+      return { ...song, measures };
+    });
+    setSelectedNoteId(null);
+    setSelectedBarTarget(lowerVoiceTarget);
+    setScoreContextMenu(null);
+    setEditorMessage(`Lower voice created in bar ${target.measureIdx + 1}. Piano input will be added there.`);
+  }, [updateSong]);
+
   const beginEditingNote = useCallback((noteId: string) => {
     composerBaseSongRef.current = null;
     provisionalNoteIdRef.current = null;
@@ -787,7 +919,7 @@ function App() {
       return true;
     }
 
-    const normalized = normalizePianoKeys(keys);
+    const normalized = normalizePianoKeys(keys, song.keySignature);
     const noteId = provisionalId ?? createId();
     const existing = provisionalIndex >= 0 ? notes[provisionalIndex] : null;
     const provisionalNote: NoteEntry = {
@@ -831,12 +963,20 @@ function App() {
       const provisionalId = provisionalNoteIdRef.current;
       if (!baseSong || !provisionalId) return;
       const committedSong = { ...currentSongRef.current, updatedAt: Date.now() };
+      setSaveStatus('saving');
+      try {
+        saveSong(committedSong);
+      } catch (error) {
+        setSaveStatus('error');
+        setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+        return;
+      }
       setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), baseSong]);
       setRedoStack([]);
       currentSongRef.current = committedSong;
       setCurrentSong(committedSong);
-      saveSong(committedSong);
       setSongs(loadSongs());
+      setSaveStatus('saved');
     }
     composerBaseSongRef.current = null;
     provisionalNoteIdRef.current = null;
@@ -895,6 +1035,60 @@ function App() {
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [scoreContextMenu]);
 
+  useEffect(() => {
+    if (!scoreContextMenu) return;
+    const animationFrame = requestAnimationFrame(() => {
+      contextMenuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]')?.focus();
+    });
+    return () => cancelAnimationFrame(animationFrame);
+  }, [scoreContextMenu]);
+
+  const openSelectionMenu = useCallback((anchor?: HTMLElement | null) => {
+    const anchorRect = anchor?.getBoundingClientRect();
+    const x = Math.max(8, Math.min(
+      anchorRect?.left ?? window.innerWidth / 2 - 109,
+      window.innerWidth - 226,
+    ));
+    const y = Math.max(8, Math.min(
+      anchorRect?.top ?? window.innerHeight / 2 - 80,
+      window.innerHeight - 190,
+    ));
+    if (selectedNoteId) {
+      const location = findNoteLocation(selectedNoteId);
+      if (location) {
+        setScoreContextMenu({ kind: 'note', x, y, noteId: selectedNoteId, location });
+        return;
+      }
+    }
+    const target = selectedBarTarget ?? {
+      measureIdx: 0,
+      clef: currentSong.staffLayout === 'bass-only' ? 'bass' as const : 'treble' as const,
+      voiceIdx: 0,
+    };
+    setSelectedBarTarget(target);
+    setScoreContextMenu({ kind: 'measure', x, y, target });
+  }, [currentSong.staffLayout, findNoteLocation, selectedBarTarget, selectedNoteId]);
+
+  const handleContextMenuKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setScoreContextMenu(null);
+      scoreRef.current?.focus();
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const items = Array.from(
+      contextMenuRef.current?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]') ?? [],
+    );
+    if (items.length === 0) return;
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const nextIndex = event.key === 'ArrowDown'
+      ? (currentIndex + 1 + items.length) % items.length
+      : (currentIndex - 1 + items.length) % items.length;
+    items[nextIndex]?.focus();
+  }, []);
+
   const transposeSelectedNote = useCallback((direction: number) => {
     modifySelectedNote((note) => transposeNoteBySteps(note, direction));
   }, [modifySelectedNote]);
@@ -912,20 +1106,20 @@ function App() {
 
     if (newIdx >= 0 && newIdx < notes.length) {
       setSelectedNoteId(notes[newIdx].id);
-    } else if (newIdx < 0 && loc.measureIdx > 0) {
-      const prevNotes = getMeasureVoice(
-        currentSong.measures[loc.measureIdx - 1],
-        loc.clef,
-        loc.voiceIdx,
-      );
-      if (prevNotes.length > 0) setSelectedNoteId(prevNotes[prevNotes.length - 1].id);
-    } else if (newIdx >= notes.length && loc.measureIdx < currentSong.measures.length - 1) {
-      const nextNotes = getMeasureVoice(
-        currentSong.measures[loc.measureIdx + 1],
-        loc.clef,
-        loc.voiceIdx,
-      );
-      if (nextNotes.length > 0) setSelectedNoteId(nextNotes[0].id);
+    } else if (newIdx < 0) {
+      for (let measureIdx = loc.measureIdx - 1; measureIdx >= 0; measureIdx--) {
+        const previous = getMeasureVoice(currentSong.measures[measureIdx], loc.clef, loc.voiceIdx);
+        if (previous.length === 0) continue;
+        setSelectedNoteId(previous[previous.length - 1].id);
+        break;
+      }
+    } else if (newIdx >= notes.length) {
+      for (let measureIdx = loc.measureIdx + 1; measureIdx < currentSong.measures.length; measureIdx++) {
+        const next = getMeasureVoice(currentSong.measures[measureIdx], loc.clef, loc.voiceIdx);
+        if (next.length === 0) continue;
+        setSelectedNoteId(next[0].id);
+        break;
+      }
     }
   }, [selectedNoteId, findNoteLocation, currentSong]);
 
@@ -956,6 +1150,39 @@ function App() {
     setScoreContextMenu(null);
     setComposerRequest(null);
   }, [selectedNoteId, findNoteLocation, updateSong]);
+
+  const handleTie = useCallback(() => {
+    if (!selectedNoteId) return;
+    const location = findNoteLocation(selectedNoteId);
+    const selected = getSelectedNote();
+    if (!location || !selected || selected.isRest) return;
+    if (selected.tieToNext) {
+      modifySelectedNote((note) => ({ ...note, tieToNext: undefined }));
+      return;
+    }
+    const nextLocation = findNextNoteLocation(location);
+    if (!nextLocation) {
+      setEditorMessage('A tie needs a following note in the same voice.');
+      return;
+    }
+    const nextNote = getMeasureVoice(
+      currentSong.measures[nextLocation.measureIdx],
+      nextLocation.clef,
+      nextLocation.voiceIdx,
+    )[nextLocation.noteIdx];
+    if (!nextNote || !notesHaveSamePitches(selected, nextNote, currentSong.keySignature)) {
+      setEditorMessage('A tie can only connect to the next note or chord with the same pitches.');
+      return;
+    }
+    modifySelectedNote((note) => ({ ...note, tieToNext: true }));
+  }, [
+    currentSong,
+    findNextNoteLocation,
+    findNoteLocation,
+    getSelectedNote,
+    modifySelectedNote,
+    selectedNoteId,
+  ]);
 
   const handleCopy = useCallback(() => {
     if (selectedNoteId) {
@@ -1079,6 +1306,7 @@ function App() {
     }
     setPlayState('loading');
     setCurrentPlayMeasure(0);
+    setPlaybackProgress(0);
     setHighlightedNoteIds([]);
     setActivePlaybackKeys([]);
     playbackEngine.onNotes((measureIdx, noteIds) => {
@@ -1091,10 +1319,16 @@ function App() {
       setHighlightedNoteIds([]);
       setActivePlaybackKeys([]);
       setCurrentPlayMeasure(0);
+      setPlaybackProgress(0);
     });
     try {
       await playbackEngine.play(currentSong, instrumentSound, 0, loopEnabled);
-      if (playbackEngine.getState() === 'playing') setPlayState('playing');
+      if (playbackEngine.getState() === 'playing') {
+        setPlayState('playing');
+        if (playbackEngine.consumeFallbackSound()) {
+          setEditorMessage('Grand Piano samples are unavailable, so playback is using Electric Keys.');
+        }
+      }
     } catch {
       playbackEngine.stop();
       setPlayState('stopped');
@@ -1115,19 +1349,32 @@ function App() {
     setHighlightedNoteIds([]);
     setActivePlaybackKeys([]);
     setCurrentPlayMeasure(0);
+    setPlaybackProgress(0);
   }, []);
 
   const handleInstrumentSoundChange = useCallback((sound: InstrumentSound) => {
     setInstrumentSound(sound);
-    localStorage.setItem(INSTRUMENT_STORAGE_KEY, sound);
-    void playbackEngine.selectInstrument(sound).catch(() => {
+    try {
+      localStorage.setItem(INSTRUMENT_STORAGE_KEY, sound);
+    } catch {
+      // Sound selection can remain session-only when browser storage is unavailable.
+    }
+    void playbackEngine.selectInstrument(sound).then(() => {
+      if (playbackEngine.consumeFallbackSound()) {
+        setEditorMessage('Grand Piano samples are unavailable, so Electric Keys will be used for now.');
+      }
+    }).catch(() => {
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     });
   }, []);
 
   const handleSynthControlsChange = useCallback((controls: SynthControls) => {
     setSynthControls(controls);
-    localStorage.setItem(SYNTH_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
+    try {
+      localStorage.setItem(SYNTH_CONTROLS_STORAGE_KEY, JSON.stringify(controls));
+    } catch {
+      // Controls still work for the current session.
+    }
     playbackEngine.setSynthControls(controls);
   }, []);
 
@@ -1140,7 +1387,11 @@ function App() {
   }, []);
 
   const handlePreviewNotes = useCallback((keys: string[]) => {
-    void playbackEngine.previewNotes(keys, instrumentSound).catch(() => {
+    void playbackEngine.previewNotes(keys, instrumentSound).then(() => {
+      if (playbackEngine.consumeFallbackSound()) {
+        setEditorMessage('Grand Piano samples are unavailable, so this preview used Electric Keys.');
+      }
+    }).catch(() => {
       setEditorMessage('That sound could not be prepared. Try another preset or check your connection.');
     });
   }, [instrumentSound]);
@@ -1198,6 +1449,7 @@ function App() {
           setSlurToolActive(false);
           setPendingSlurStartId(null);
           setScoreContextMenu(null);
+          setPendingDeleteSongId(null);
           setEditorMessage(null);
           break;
         case '1': setSelectedDuration('w'); modifySelectedNote((n) => ({ ...n, duration: 'w' })); break;
@@ -1207,7 +1459,7 @@ function App() {
         case '5': setSelectedDuration('16'); modifySelectedNote((n) => ({ ...n, duration: '16' })); break;
         case 'r': setIsRestMode((v) => !v); break;
         case '.': setIsDotted((v) => !v); break;
-        case 't': modifySelectedNote((n) => ({ ...n, tieToNext: !n.tieToNext })); break;
+        case 't': handleTie(); break;
         case 'Delete':
         case 'Backspace':
           if (selectedNoteId) { e.preventDefault(); handleDeleteNote(); }
@@ -1227,7 +1479,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, handleCopy, handlePaste, composerRequest, cancelComposerSession]);
+  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, handleCopy, handlePaste, handleTie, composerRequest, cancelComposerSession]);
 
   // Add note with beat validation
   const handleAddNote = (keys: string[], clef: 'treble' | 'bass') => {
@@ -1252,7 +1504,7 @@ function App() {
       }
     }
 
-    const normalized = normalizePianoKeys(keys);
+    const normalized = normalizePianoKeys(keys, currentSong.keySignature);
     const newNote: NoteEntry = {
       id: createId(),
       keys: isRestMode ? (targetClef === 'treble' ? ['b/4'] : ['d/3']) : normalized.keys,
@@ -1356,8 +1608,15 @@ function App() {
 
   const handleAccidental = (acc: Accidental) => {
     modifySelectedNote((note) => {
-      const current = note.accidentals?.[0];
-      return { ...note, accidentals: current === acc ? undefined : note.keys.map(() => acc) };
+      if (note.isRest) return note;
+      const toneIndex = Math.max(0, Math.min(note.keys.length - 1, selectedChordToneIndex));
+      const accidentals = note.keys.map((_, index) => note.accidentals?.[index] ?? null);
+      accidentals[toneIndex] = accidentals[toneIndex] === acc ? null : acc;
+      return {
+        ...note,
+        accidentals: accidentals.some(Boolean) ? accidentals : undefined,
+        suppressAccidentals: undefined,
+      };
     });
   };
 
@@ -1400,7 +1659,14 @@ function App() {
   const handleNewSong = () => {
     handleStop();
     const newSong = createDefaultSong();
-    saveSong(newSong);
+    setSaveStatus('saving');
+    try {
+      saveSong(newSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
     setCurrentSongId(newSong.id);
     setCurrentSong(newSong);
     setSongs(loadSongs());
@@ -1412,6 +1678,7 @@ function App() {
     setPendingSlurStartId(null);
     setEditorMessage(null);
     setUndoStack([]); setRedoStack([]);
+    setSaveStatus('saved');
   };
 
   const handleSelectSong = (id: string) => {
@@ -1433,9 +1700,27 @@ function App() {
 
   const handleDeleteSong = (id: string) => {
     const song = songs.find((candidate) => candidate.id === id);
-    if (!song || !window.confirm(`Delete “${song.title || 'Untitled'}”? This cannot be undone.`)) return;
+    if (!song) return;
+    setPendingDeleteSongId(id);
+  };
+
+  const confirmDeleteSong = () => {
+    if (!pendingDeleteSongId) return;
+    const id = pendingDeleteSongId;
+    const song = songs.find((candidate) => candidate.id === id);
+    setPendingDeleteSongId(null);
+    if (!song) return;
+    const wasCurrent = id === currentSong.id;
     if (id === currentSong.id) handleStop();
-    deleteStoredSong(id);
+    setSaveStatus('saving');
+    try {
+      deleteStoredSong(id);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not update local storage.');
+      return;
+    }
+    setDeletedSongUndo({ song, wasCurrent });
     const remaining = loadSongs();
     setSongs(remaining);
     if (id === currentSong.id) {
@@ -1448,16 +1733,41 @@ function App() {
       setSlurToolActive(false);
       setPendingSlurStartId(null);
     }
+    setSaveStatus('saved');
+  };
+
+  const undoDeleteSong = () => {
+    if (!deletedSongUndo) return;
+    setSaveStatus('saving');
+    try {
+      saveSong(deletedSongUndo.song);
+      const restoredSongs = loadSongs();
+      setSongs(restoredSongs);
+      if (deletedSongUndo.wasCurrent) {
+        handleStop();
+        setCurrentSong(deletedSongUndo.song);
+        setCurrentSongId(deletedSongUndo.song.id);
+      }
+      setDeletedSongUndo(null);
+      setSaveStatus('saved');
+      setEditorMessage(`Restored “${deletedSongUndo.song.title || 'Untitled'}”.`);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'The song could not be restored.');
+    }
   };
 
   const handleExport = () => exportSongToJson(currentSong);
 
   const handleImport = async (file: File) => {
     try {
-      const importedSong = await importSongFromJson(file);
+      const isMidi = /\.(?:mid|midi)$/i.test(file.name) || /midi/i.test(file.type);
+      const midiResult = isMidi ? await importSongFromMidi(file) : null;
+      const importedSong = midiResult?.song ?? await importSongFromJson(file);
       const now = Date.now();
       const song = { ...importedSong, id: createId(), createdAt: now, updatedAt: now };
       handleStop();
+      setSaveStatus('saving');
       saveSong(song);
       setCurrentSong(song);
       setCurrentSongId(song.id);
@@ -1468,9 +1778,13 @@ function App() {
       setComposerRequest(null);
       setSlurToolActive(false);
       setPendingSlurStartId(null);
-      setEditorMessage(null);
+      setEditorMessage(midiResult
+        ? `Converted ${midiResult.importedTrackCount} MIDI track${midiResult.importedTrackCount === 1 ? '' : 's'} into editable score notes.${midiResult.warnings.length > 0 ? ` ${midiResult.warnings.join(' ')}` : ''}`
+        : null);
       setUndoStack([]); setRedoStack([]);
+      setSaveStatus('saved');
     } catch (err) {
+      setSaveStatus('error');
       setEditorMessage(`Import failed: ${err instanceof Error ? err.message : 'Invalid song file'}`);
     }
   };
@@ -1487,7 +1801,28 @@ function App() {
     setEditorMessage('Slur: select the starting note.');
   };
 
+  const handleTimeSignatureChange = (timeSignature: [number, number]) => {
+    const nextCapacity = getMeasureCapacity(timeSignature);
+    for (let measureIdx = 0; measureIdx < currentSong.measures.length; measureIdx++) {
+      for (const clef of ['treble', 'bass'] as const) {
+        const overflowingVoice = getMeasureVoices(currentSong.measures[measureIdx], clef)
+          .findIndex((voice) => getMeasureBeatCount(voice) > nextCapacity + 1e-9);
+        if (overflowingVoice >= 0) {
+          setEditorMessage(
+            `Cannot change to ${timeSignature[0]}/${timeSignature[1]}: bar ${measureIdx + 1}, ${clef} voice ${overflowingVoice + 1} is too long.`,
+          );
+          return;
+        }
+      }
+    }
+    updateSong((song) => ({ ...song, timeSignature }));
+    setEditorMessage(null);
+  };
+
   const selectedNote = getSelectedNote();
+  const pendingDeleteSong = pendingDeleteSongId
+    ? songs.find((song) => song.id === pendingDeleteSongId) ?? null
+    : null;
   const canCopy = Boolean(selectedNoteId || selectedBarTarget);
   const selectedNoteLabel = selectedNote?.isRest
     ? 'Rest'
@@ -1521,6 +1856,7 @@ function App() {
         songId={currentSong.id}
         playState={playState}
         tempo={currentSong.tempo}
+        timeSignature={currentSong.timeSignature}
         keySignature={currentSong.keySignature}
         loopEnabled={loopEnabled}
         onPlay={handlePlay}
@@ -1528,6 +1864,7 @@ function App() {
         onStop={handleStop}
         onLoopToggle={handleLoopToggle}
         onTempoChange={(tempo) => updateSong((song) => song.tempo === tempo ? song : { ...song, tempo })}
+        onTimeSignatureChange={handleTimeSignatureChange}
         onKeySignatureChange={(keySignature) => updateSong((song) => (
           song.keySignature === keySignature ? song : { ...song, keySignature }
         ))}
@@ -1535,6 +1872,7 @@ function App() {
         onTitleChange={(title) => updateSong((song) => song.title === title ? song : { ...song, title })}
         currentMeasure={currentPlayMeasure}
         totalMeasures={currentSong.measures.length}
+        playbackProgress={playbackProgress}
       />
       <Toolbar
         selectedDuration={selectedDuration}
@@ -1546,16 +1884,10 @@ function App() {
         onRestModeToggle={() => setIsRestMode((v) => !v)}
         isDotted={isDotted}
         onDottedToggle={() => setIsDotted((v) => !v)}
-        onRestMove={(direction) => modifySelectedNote((note) => {
-          if (!note.isRest) return note;
-          const restOffset = Math.max(-6, Math.min(6, (note.restOffset ?? 0) + direction * 0.5));
-          return { ...note, restOffset: restOffset || undefined };
-        })}
-        onRestReset={() => modifySelectedNote((note) => ({ ...note, restOffset: undefined }))}
         onAccidental={handleAccidental}
         onDynamic={handleDynamic}
         onArticulation={handleArticulation}
-        onTie={() => modifySelectedNote((n) => ({ ...n, tieToNext: !n.tieToNext }))}
+        onTie={handleTie}
         onSlurToolToggle={handleSlurToolToggle}
         isSlurToolActive={slurToolActive}
         isSlurStartPending={Boolean(pendingSlurStartId)}
@@ -1576,6 +1908,8 @@ function App() {
         canPaste={Boolean(editorClipboard)}
         canDeleteMeasure={currentSong.measures.length > 1}
         selectedNote={selectedNote}
+        selectedChordToneIndex={selectedChordToneIndex}
+        onSelectedChordToneIndexChange={setSelectedChordToneIndex}
       />
       <div className="main-content">
         <SongManager
@@ -1597,6 +1931,15 @@ function App() {
             onPointerMove={handleScorePointerMove}
             onPointerUp={finishScorePointer}
             onPointerCancel={finishScorePointer}
+            onKeyDown={(event) => {
+              if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10') || event.key === 'Enter') {
+                if (selectedNoteId || selectedBarTarget) {
+                  event.preventDefault();
+                  openSelectionMenu(event.currentTarget);
+                }
+              }
+            }}
+            tabIndex={0}
             aria-label="Interactive sheet music. Click a bar to select it, or right-click for editing actions."
           />
           {scoreContextMenu && (
@@ -1604,7 +1947,9 @@ function App() {
               className="score-context-menu"
               style={{ left: scoreContextMenu.x, top: scoreContextMenu.y }}
               role="menu"
+              ref={contextMenuRef}
               onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={handleContextMenuKeyDown}
             >
               {scoreContextMenu.kind === 'measure' ? (
                 <>
@@ -1620,6 +1965,15 @@ function App() {
                     Add note(s)
                     <kbd>Enter</kbd>
                   </button>
+                  {getMeasureVoices(
+                    currentSong.measures[scoreContextMenu.target.measureIdx],
+                    scoreContextMenu.target.clef,
+                  ).length === 1 && (
+                    <button type="button" role="menuitem" onClick={() => addLowerVoice(scoreContextMenu.target)}>
+                      <span className="context-menu-icon">𝄢</span>
+                      Add lower voice
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
@@ -1668,20 +2022,59 @@ function App() {
             ) : (
               <span className="status-hint">Select a note to edit it, or use the piano below to begin in bar 1</span>
             )}
-            <span className="status-shortcuts">
-              {composerRequest?.mode === 'add' ? (
-                <>Click a piano key again to remove it &middot; Enter: finish &middot; Escape: cancel</>
-              ) : selectedNote ? (
-                <>{selectedNote.isRest ? '↑/↓: move rest' : 'Drag: move · click above/below: add tone'} &middot; Cmd/Ctrl+C/V: copy/paste &middot; ←/→: navigate</>
-              ) : selectedBarTarget ? (
-                <>Cmd/Ctrl+C/V: copy/paste bar &middot; Right-click: add notes &middot; Click piano: add note</>
-              ) : (
-                <>Space: play/pause &middot; Cmd/Ctrl+Z: undo &middot; Cmd/Ctrl+Shift+Z: redo</>
+            <div className="status-meta">
+              {deletedSongUndo && (
+                <button type="button" className="undo-delete-btn" onClick={undoDeleteSong}>
+                  Undo delete
+                </button>
               )}
-            </span>
+              {(selectedNote || selectedBarTarget) && (
+                <button
+                  type="button"
+                  className="selection-actions-btn"
+                  onClick={(event) => openSelectionMenu(event.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={Boolean(scoreContextMenu)}
+                >
+                  Actions
+                </button>
+              )}
+              <span className={`save-status ${saveStatus}`}>
+                {saveStatus === 'error' ? 'Save failed' : saveStatus === 'saving' ? 'Saving…' : 'Saved locally'}
+              </span>
+              <span className="status-shortcuts">
+                {composerRequest?.mode === 'add' ? (
+                  <>Click a piano key again to remove it &middot; Enter: finish &middot; Escape: cancel</>
+                ) : selectedNote ? (
+                  <>{selectedNote.isRest ? '↑/↓: move rest' : 'Drag: move · click above/below: add tone'} &middot; Cmd/Ctrl+C/V: copy/paste &middot; ←/→: navigate</>
+                ) : selectedBarTarget ? (
+                  <>Cmd/Ctrl+C/V: copy/paste bar &middot; Right-click: add notes &middot; Click piano: add note</>
+                ) : (
+                  <>Space: play/pause &middot; Cmd/Ctrl+Z: undo &middot; Cmd/Ctrl+Shift+Z: redo</>
+                )}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+      {pendingDeleteSong && (
+        <div className="confirmation-backdrop" role="presentation" onPointerDown={() => setPendingDeleteSongId(null)}>
+          <div
+            className="confirmation-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-song-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="delete-song-title">Delete this song?</h2>
+            <p>“{pendingDeleteSong.title || 'Untitled'}” will be removed from this browser. You can undo immediately afterward.</p>
+            <div className="confirmation-actions">
+              <button type="button" autoFocus onClick={() => setPendingDeleteSongId(null)}>Cancel</button>
+              <button type="button" className="confirm-danger" onClick={confirmDeleteSong}>Delete song</button>
+            </div>
+          </div>
+        </div>
+      )}
       <NoteInput
         key={composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}
         onAddNote={handleAddNote}
@@ -1697,7 +2090,7 @@ function App() {
         onSynthControlsChange={handleSynthControlsChange}
         onPreviewNotes={handlePreviewNotes}
         onUpdateSelectedKeys={(keys) => {
-          const normalized = normalizePianoKeys(keys);
+          const normalized = normalizePianoKeys(keys, currentSong.keySignature);
           modifySelectedNote((note) => ({
             ...note,
             keys: normalized.keys,

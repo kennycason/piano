@@ -1,5 +1,6 @@
 import React from 'react';
 import VexFlow from 'vexflow';
+import type { NoteDuration } from '../../models/song';
 
 export const NotationGlyphs = VexFlow.Glyphs;
 
@@ -34,8 +35,16 @@ export const SixteenthNote: React.FC = () => (
   <NotationGlyph glyph={NotationGlyphs.note16thUp} className="duration-glyph stemmed-note-glyph" />
 );
 
-export const RestIcon: React.FC = () => (
-  <NotationGlyph glyph={NotationGlyphs.restQuarter} className="rest-glyph" />
+const restGlyphs: Record<NoteDuration, string> = {
+  w: NotationGlyphs.restWhole,
+  h: NotationGlyphs.restHalf,
+  q: NotationGlyphs.restQuarter,
+  '8': NotationGlyphs.rest8th,
+  '16': NotationGlyphs.rest16th,
+};
+
+export const RestIcon: React.FC<{ duration: NoteDuration }> = ({ duration }) => (
+  <NotationGlyph glyph={restGlyphs[duration]} className={`rest-glyph rest-glyph-${duration}`} />
 );
 
 export const DotIcon: React.FC = () => (

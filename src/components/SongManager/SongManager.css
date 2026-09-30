@@ -137,10 +137,65 @@
 
 @media (max-width: 760px) {
   .song-manager {
-    width: 150px;
+    width: 100%;
+    height: auto;
+    max-height: 132px;
+    flex: 0 0 auto;
+    border-right: 0;
+    border-bottom: 1px solid #313244;
   }
 
   .song-manager-header {
-    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .song-manager-header h3 {
+    margin: 0;
+  }
+
+  .song-manager-actions {
+    flex-wrap: nowrap;
+    flex: 0 0 184px;
+    width: 184px;
+  }
+
+  .sm-btn {
+    min-width: 54px;
+    min-height: 34px;
+    padding-inline: 8px;
+  }
+
+  .song-list {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 8px 7px;
+    scrollbar-width: thin;
+  }
+
+  .song-item {
+    flex: 0 0 152px;
+    margin: 0;
+  }
+
+  .song-item.active {
+    border-left: 0;
+    border-bottom: 3px solid #89b4fa;
+  }
+
+  .song-select-btn {
+    min-height: 50px;
+    padding-block: 6px;
+  }
+
+  .song-delete-btn {
+    opacity: 1;
+    min-width: 32px;
+    min-height: 32px;
   }
 }

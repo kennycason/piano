@@ -264,6 +264,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                 key={key.note}
                 className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''}`}
                 aria-pressed={selectedKeys.has(key.note)}
+                aria-label={key.label}
                 onPointerDown={(event) => {
                   if (event.button === 0) onPreviewNotes([key.note]);
                 }}
@@ -290,6 +291,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                   className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''}`}
                   style={{ left: `${(key.whiteBoundary / TOTAL_WHITE_KEYS) * 100}%` }}
                   aria-pressed={selectedKeys.has(key.note)}
+                  aria-label={key.label}
                   onPointerDown={(event) => {
                     if (event.button === 0) onPreviewNotes([key.note]);
                   }}

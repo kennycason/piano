@@ -6,6 +6,7 @@ interface PlaybackBarProps {
   songId: string;
   playState: 'stopped' | 'loading' | 'playing' | 'paused';
   tempo: number;
+  timeSignature: [number, number];
   keySignature: string;
   loopEnabled: boolean;
   onPlay: () => void;
@@ -13,17 +14,20 @@ interface PlaybackBarProps {
   onStop: () => void;
   onLoopToggle: () => void;
   onTempoChange: (tempo: number) => void;
+  onTimeSignatureChange: (timeSignature: [number, number]) => void;
   onKeySignatureChange: (keySignature: string) => void;
   songTitle: string;
   onTitleChange: (title: string) => void;
   currentMeasure: number;
   totalMeasures: number;
+  playbackProgress: number;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   songId,
   playState,
   tempo,
+  timeSignature,
   keySignature,
   loopEnabled,
   onPlay,
@@ -31,13 +35,17 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   onStop,
   onLoopToggle,
   onTempoChange,
+  onTimeSignatureChange,
   onKeySignatureChange,
   songTitle,
   onTitleChange,
   currentMeasure,
   totalMeasures,
+  playbackProgress,
 }) => {
-  const progress = totalMeasures > 0 ? ((currentMeasure + 1) / totalMeasures) * 100 : 0;
+  const progress = Math.max(0, Math.min(100, playbackProgress * 100));
+  const currentMeter = `${timeSignature[0]}/${timeSignature[1]}`;
+  const timeSignatureOptions = ['2/4', '3/4', '4/4', '6/8', '9/8', '12/8'];
 
   return (
     <div className="playback-bar">
@@ -113,6 +121,25 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         </div>
       </div>
       <div className="playback-right">
+        <label className="time-signature-label">
+          Meter
+          <select
+            className="time-signature-select"
+            value={currentMeter}
+            onChange={(event) => {
+              const [beats, beatValue] = event.target.value.split('/').map(Number);
+              onTimeSignatureChange([beats, beatValue]);
+            }}
+            aria-label="Time signature"
+          >
+            {!timeSignatureOptions.includes(currentMeter) && (
+              <option value={currentMeter}>{currentMeter}</option>
+            )}
+            {timeSignatureOptions.map((meter) => (
+              <option key={meter} value={meter}>{meter}</option>
+            ))}
+          </select>
+        </label>
         <label className="key-signature-label">
           Key
           <select

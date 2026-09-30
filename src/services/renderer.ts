@@ -16,12 +16,13 @@ import {
   Stem,
 } from 'vexflow';
 import {
-  getKeySignatureAccidental,
+  getMeasureAccidentalDisplay,
   getMeasureBeatCount,
   getMeasureCapacity,
   getMeasureVoices,
+  getTieIndexes,
 } from '../models/song';
-import type { SlurPlacement, Song, StaffClef } from '../models/song';
+import type { NoteEntry, SlurPlacement, Song, StaffClef } from '../models/song';
 
 const DEFAULT_STAVE_WIDTH = 280;
 const MIN_STAVE_WIDTH = 240;
@@ -89,6 +90,7 @@ export function renderSong(
   const measureRegions: RenderResult['measureRegions'] = [];
   const renderedNotes = new Map<string, {
     note: StaveNote;
+    source: NoteEntry;
     row: number;
     clef: StaffClef;
     voiceIdx: number;
@@ -130,8 +132,14 @@ export function renderSong(
   const title = song.title.trim() || 'Untitled';
   context.save();
   context.setFillStyle('#18181b');
-  context.setFont('Georgia', 24, 'bold');
-  const titleWidth = context.measureText(title).width;
+  let titleFontSize = 24;
+  context.setFont('Georgia', titleFontSize, 'bold');
+  let titleWidth = context.measureText(title).width;
+  while (titleFontSize > 14 && titleWidth > totalWidth - START_X * 2) {
+    titleFontSize -= 1;
+    context.setFont('Georgia', titleFontSize, 'bold');
+    titleWidth = context.measureText(title).width;
+  }
   context.fillText(title, Math.max(START_X, (totalWidth - titleWidth) / 2), 34);
   context.setFont('Arial', 12, 'normal');
   context.fillText(`♩ = ${song.tempo}`, START_X + 12, 63);
@@ -231,6 +239,7 @@ export function renderSong(
       if (!stave) continue;
       const displayClef = song.staffClefs?.[clef] ?? clef;
       const noteGroups = getMeasureVoices(measure, clef);
+      const accidentalDisplay = getMeasureAccidentalDisplay(measure, clef, song.keySignature);
       const multipleVoices = noteGroups.filter((notes) => notes.length > 0).length > 1;
       const measureCapacity = getMeasureCapacity(song.timeSignature);
       const voiceData = noteGroups.flatMap((notes, voiceIdx) => {
@@ -253,16 +262,13 @@ export function renderSong(
             staveNote.setKeyLine(0, 3 + voiceLane + (note.restOffset ?? 0));
           }
 
-          if (!note.isRest && !note.suppressAccidentals) {
-            note.keys.forEach((key, index) => {
-              const pitchName = key.split('/')[0];
-              const embeddedAccidental = pitchName.slice(1);
-              const accidental = note.accidentals?.[index]
-                ?? (embeddedAccidental === '#' || embeddedAccidental === 'b' ? embeddedAccidental : null);
-              const signatureAccidental = getKeySignatureAccidental(song.keySignature, pitchName);
-              if (accidental && (accidental === 'n' || accidental !== signatureAccidental)) {
-                staveNote.addModifier(new Accidental(accidental), index);
-              }
+          if (note.isSpacer) {
+            staveNote.setStyle({ fillStyle: 'transparent', strokeStyle: 'transparent' });
+          }
+
+          if (!note.isRest) {
+            accidentalDisplay.get(note.id)?.forEach((accidental, index) => {
+              if (accidental) staveNote.addModifier(new Accidental(accidental), index);
             });
           }
           if (note.dotted) Dot.buildAndAttach([staveNote]);
@@ -273,6 +279,18 @@ export function renderSong(
           if (note.dynamic) {
             staveNote.addModifier(
               new Annotation(note.dynamic)
+                .setVerticalJustification(Annotation.VerticalJustify.BOTTOM),
+            );
+          }
+          if (note.pedalStart) {
+            staveNote.addModifier(
+              new Annotation('Ped.')
+                .setVerticalJustification(Annotation.VerticalJustify.BOTTOM),
+            );
+          }
+          if (note.pedalEnd) {
+            staveNote.addModifier(
+              new Annotation('*')
                 .setVerticalJustification(Annotation.VerticalJustify.BOTTOM),
             );
           }
@@ -320,26 +338,15 @@ export function renderSong(
 
         beamsByVoice.get(voiceIdx)?.forEach((beam) => beam.setContext(context).draw());
 
-        const ties: StaveTie[] = [];
-        for (let ni = 0; ni < notes.length - 1; ni++) {
-          if (notes[ni].tieToNext) {
-            ties.push(new StaveTie({
-              firstNote: vexNotes[ni],
-              lastNote: vexNotes[ni + 1],
-              firstIndexes: [0],
-              lastIndexes: [0],
-            }));
-          }
-        }
-        ties.forEach((tie) => tie.setContext(context).draw());
-
         vexNotes.forEach((vexNote, noteIdx) => {
           const note = notes[noteIdx];
+          if (note.isSpacer) return;
           const inferredSlurPlacement: SlurPlacement = voiceIdx > 0
             ? 'below'
             : (clef === 'treble' || song.staffLayout === 'bass-only' ? 'above' : 'below');
           renderedNotes.set(note.id, {
             note: vexNote,
+            source: note,
             row,
             clef,
             voiceIdx,
@@ -359,6 +366,58 @@ export function renderSong(
           }
         });
       }
+    }
+  }
+
+  const drawTie = (startId: string, endId: string) => {
+    const start = renderedNotes.get(startId);
+    const end = renderedNotes.get(endId);
+    if (!start || !end || start.clef !== end.clef || start.voiceIdx !== end.voiceIdx) return;
+    const { firstIndexes, lastIndexes } = getTieIndexes(
+      start.source,
+      end.source,
+      song.keySignature,
+    );
+    if (firstIndexes.length === 0) return;
+
+    if (start.row === end.row) {
+      new StaveTie({
+        firstNote: start.note,
+        lastNote: end.note,
+        firstIndexes,
+        lastIndexes,
+      }).setContext(context).draw();
+      return;
+    }
+
+    new StaveTie({
+      firstNote: start.note,
+      lastNote: null,
+      firstIndexes,
+      lastIndexes: firstIndexes,
+    }).setContext(context).draw();
+    new StaveTie({
+      firstNote: null,
+      lastNote: end.note,
+      firstIndexes: lastIndexes,
+      lastIndexes,
+    }).setContext(context).draw();
+  };
+
+  for (const clef of visibleClefs) {
+    const maxVoiceCount = Math.max(
+      1,
+      ...song.measures.map((measure) => getMeasureVoices(measure, clef).length),
+    );
+    for (let voiceIdx = 0; voiceIdx < maxVoiceCount; voiceIdx++) {
+      const notes = song.measures.flatMap((measure) => (
+        getMeasureVoices(measure, clef)[voiceIdx] ?? []
+      ));
+      notes.forEach((note, noteIndex) => {
+        if (note.tieToNext && notes[noteIndex + 1]) {
+          drawTie(note.id, notes[noteIndex + 1].id);
+        }
+      });
     }
   }
 

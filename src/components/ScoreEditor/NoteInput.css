@@ -310,11 +310,43 @@
 
 @media (max-width: 760px) {
   .note-input-header {
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 5px 8px;
+  }
+
+  .synth-panel {
+    width: 100%;
+    min-height: 34px;
     overflow-x: auto;
+    padding-bottom: 2px;
   }
 
   .note-input-actions {
-    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .selection-hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .synth-preset-select,
+  .synth-reset-btn,
+  .clear-btn,
+  .update-chord-btn,
+  .add-note-btn {
+    min-height: 34px;
+  }
+
+  .piano-keys-area {
+    min-width: 720px;
+    height: 118px;
   }
 }

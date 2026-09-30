@@ -1,24 +1,34 @@
 # Piano Sheet roadmap
 
-The editor has a solid local-first prototype core. The next phase should prioritize confidence in the score model before broadening notation features.
+The editor now has a tested local-first core, versioned storage, responsive editing, and MIDI import. This roadmap separates the reliability work completed in the current pass from the remaining notation and practice features.
+
+## Completed foundations
+
+- Unit coverage for beat math, accidental inheritance, chord/cross-bar ties, repeats, storage migration and validation, checked-in song fixtures, and multi-track MIDI conversion
+- GitHub Actions checks for lint, tests, and production builds
+- Persisted schema versions with legacy migration, strict imports, storage-error feedback, and preservation of damaged entries during future saves
+- In-app song deletion confirmation with one-click restore
+- Automatic synthesized-audio fallback when the sampled grand piano is unavailable
+- Responsive mobile layout, touch-sized controls, a horizontally scrollable 88-key keyboard, keyboard-accessible score menus, and visible save status
+- Time-signature editing with overflow protection and same-staff voice creation
+- Measure-scoped accidental notation, chord-aware ties, and ties/slurs across bars and wrapped systems
+- Rendered pedal markings plus pedal and fermata playback behavior
+- Sustained score/piano highlights, playback progress, and score-following cursor
+- MIDI import with sixteenth-note quantization, chord detection, staff splitting, overlapping voice preservation, and import warnings
 
 ## P0 — confidence and data safety
 
-- Add unit tests for beat math, note insertion, transposition, repeat expansion, and import validation.
-- Add browser interaction tests for composing, undo/redo, switching songs, and playback state changes.
-- Introduce a persisted schema version and migrations before the `Song` model changes further.
-- Replace blocking browser confirmation with an in-app confirmation/undo flow for song deletion.
-- Add an offline or bundled audio strategy; playback currently needs network access on first use.
+- Add browser interaction tests for composing, chord editing, undo/redo, switching songs, MIDI/JSON import, and playback state changes.
+- Add export/restore for the complete local library, not just the active song.
+- Offer an optional bundled piano or installable/PWA asset cache; synthesized sounds work offline, but sampled grand piano still needs its first network download.
 
 ## P1 — complete the notation workflow
 
-- Add a time-signature control with safe measure reflow rules.
 - Extend the score insertion surface with a rhythmic caret and horizontal drag/reordering.
 - Support note selection ranges, copy/paste, and multi-note edits.
-- Render pedal markings and add draggable slur endpoints.
-- Support ties and slurs across measure/system boundaries.
-- Improve rhythmic engraving: rests for unfilled beats, beam grouping by meter, voice-creation controls, and tuplets.
-- Add MusicXML and MIDI import/export; JSON should remain the lossless internal backup format.
+- Add draggable slur endpoints and direct manipulation of pedal spans.
+- Improve rhythmic engraving: automatic rests for unfilled beats, user-controlled beam groups, and tuplets.
+- Add MIDI export and MusicXML import/export; JSON remains the lossless internal backup format.
 
 ## P2 — playback and practice
 
@@ -26,14 +36,14 @@ The editor has a solid local-first prototype core. The next phase should priorit
 - Add metronome, count-in, loop-range controls, and per-hand mute/solo.
 - Make tempo changes during playback deterministic.
 - Support repeat endings, D.C./D.S., coda, and more complete score navigation.
-- Add detailed audio loading progress and automatically fall back to a synthesized sound when samples are unavailable.
+- Add detailed sampled-audio loading progress.
 
 ## P3 — product and architecture
 
 - Split editor commands/history out of `App.tsx` into a reducer or command layer.
 - Move rendering behind a small adapter so layout can be tested independently of the DOM.
 - Reduce the initial VexFlow bundle (currently large enough to trigger Vite's chunk-size warning) through targeted imports, font handling, or deferred editor loading.
-- Add autosave status, song sorting/search, duplication, and rename affordances.
+- Add song sorting/search, duplication, and explicit rename affordances.
 - Decide whether the product stays local-first or adds accounts, sync, and collaboration.
 - Add print/PDF layout, page sizing, and accessible high-contrast/light themes.
 
@@ -43,6 +53,5 @@ The editor has a solid local-first prototype core. The next phase should priorit
 - The key selector supports standard key signatures, but not custom/nonstandard accidental layouts.
 - Empty portions of measures are visually blank rather than engraved with rests.
 - Chords spanning both clefs are assigned to a single clef based on their lowest note.
-- Additional same-staff voices can be imported and edited after selecting one of their notes, but there is not yet a UI command for creating a new voice from scratch.
 - Pausing releases sustained notes; resuming continues at the paused score position rather than retriggering those held notes.
-- The app currently has no automated tests or continuous integration.
+- MIDI import quantizes to sixteenth notes and uses the first tempo, meter, and key signature; later changes and percussion are reported but not imported.
