@@ -1,0 +1,98 @@
+{
+  "id": "fixture-midnight-mouse",
+  "title": "Midnight Mouse — Original Beginner Study",
+  "tempo": 84,
+  "timeSignature": [4, 4],
+  "keySignature": "C",
+  "staffLayout": "grand",
+  "voiceLabels": { "treble": ["R.H."], "bass": ["L.H."] },
+  "measures": [
+    {
+      "repeatStart": true,
+      "treble": [
+        { "id": "mouse-m1-1", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "mouse-m1-2", "keys": ["a/4", "c/5"], "duration": "q", "dynamic": "p", "articulations": ["staccato"] },
+        { "id": "mouse-m1-3", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "mouse-m1-4", "keys": ["b/4", "d/5"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "bass": [{ "id": "mouse-m1-b1", "keys": ["a/2"], "duration": "w", "dynamic": "p" }]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m2-1", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "mouse-m2-2", "keys": ["c/5", "e/5"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m2-3", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "mouse-m2-4", "keys": ["a/4", "c/5"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "bass": [{ "id": "mouse-m2-b1", "keys": ["e/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m3-1", "keys": ["e/5"], "duration": "q", "slurToNoteId": "mouse-m3-4", "slurPlacement": "above" },
+        { "id": "mouse-m3-2", "keys": ["d/5"], "duration": "q" },
+        { "id": "mouse-m3-3", "keys": ["c/5"], "duration": "q" },
+        { "id": "mouse-m3-4", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [
+        { "id": "mouse-m3-b1", "keys": ["a/2"], "duration": "h" },
+        { "id": "mouse-m3-b2", "keys": ["e/3"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m4-1", "keys": ["a/4", "c/5"], "duration": "h", "articulations": ["tenuto"] },
+        { "id": "mouse-m4-2", "keys": ["b/4"], "duration": "h", "isRest": true }
+      ],
+      "bass": [{ "id": "mouse-m4-b1", "keys": ["a/2"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m5-1", "keys": ["a/4"], "duration": "8", "dynamic": "mp", "articulations": ["staccato"] },
+        { "id": "mouse-m5-2", "keys": ["c/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-3", "keys": ["b/4"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-4", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-5", "keys": ["c/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-6", "keys": ["e/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-7", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "mouse-m5-8", "keys": ["b/4"], "duration": "8", "articulations": ["staccato"] }
+      ],
+      "bass": [
+        { "id": "mouse-m5-b1", "keys": ["a/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m5-b2", "keys": ["d/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m5-b3", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m5-b4", "keys": ["e/2"], "duration": "q", "articulations": ["staccato"] }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m6-1", "keys": ["a/4", "c/5"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m6-2", "keys": ["b/4"], "duration": "q", "isRest": true },
+        { "id": "mouse-m6-3", "keys": ["g/4", "b/4"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m6-4", "keys": ["b/4"], "duration": "q", "isRest": true }
+      ],
+      "bass": [
+        { "id": "mouse-m6-b1", "keys": ["f/2"], "duration": "h" },
+        { "id": "mouse-m6-b2", "keys": ["e/2"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "mouse-m7-1", "keys": ["f/4", "a/4"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m7-2", "keys": ["g/4", "b/4"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "mouse-m7-3", "keys": ["a/4", "c/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "mouse-m7-4", "keys": ["b/4"], "duration": "q", "isRest": true }
+      ],
+      "bass": [
+        { "id": "mouse-m7-b1", "keys": ["f/2"], "duration": "h" },
+        { "id": "mouse-m7-b2", "keys": ["e/2"], "duration": "h" }
+      ]
+    },
+    {
+      "repeatEnd": true,
+      "treble": [{ "id": "mouse-m8-1", "keys": ["a/4", "c/5", "e/5"], "duration": "w", "dynamic": "p", "articulations": ["fermata"] }],
+      "bass": [{ "id": "mouse-m8-b1", "keys": ["a/2", "e/3"], "duration": "w", "pedalStart": true, "pedalEnd": true }]
+    }
+  ],
+  "createdAt": 1790730004000,
+  "updatedAt": 1790730004000
+}

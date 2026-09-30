@@ -1,0 +1,128 @@
+{
+  "id": "fixture-pixel-parade",
+  "title": "Pixel Parade — Original Platformer Study",
+  "tempo": 132,
+  "timeSignature": [4, 4],
+  "keySignature": "C",
+  "staffLayout": "grand",
+  "voiceLabels": { "treble": ["R.H."], "bass": ["L.H."] },
+  "measures": [
+    {
+      "treble": [
+        { "id": "pixel-m1-1", "keys": ["e/5"], "duration": "8", "dynamic": "mf", "articulations": ["staccato"] },
+        { "id": "pixel-m1-2", "keys": ["g/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m1-3", "keys": ["c/6"], "duration": "8", "articulations": ["accent"] },
+        { "id": "pixel-m1-4", "keys": ["g/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m1-5", "keys": ["a/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m1-6", "keys": ["f/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m1-7", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m1-8", "keys": ["g/5"], "duration": "8", "articulations": ["accent"] }
+      ],
+      "bass": [
+        { "id": "pixel-m1-b1", "keys": ["c/3", "g/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m1-b2", "keys": ["g/2", "d/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m1-b3", "keys": ["a/2", "e/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m1-b4", "keys": ["g/2", "d/3"], "duration": "q", "articulations": ["staccato"] }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m2-1", "keys": ["f/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-2", "keys": ["a/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-3", "keys": ["c/6"], "duration": "8", "articulations": ["accent"] },
+        { "id": "pixel-m2-4", "keys": ["a/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-5", "keys": ["g/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-6", "keys": ["e/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-7", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m2-8", "keys": ["c/5"], "duration": "8", "articulations": ["accent"] }
+      ],
+      "bass": [
+        { "id": "pixel-m2-b1", "keys": ["f/2", "c/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m2-b2", "keys": ["c/3", "g/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m2-b3", "keys": ["g/2", "d/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m2-b4", "keys": ["c/3", "g/3"], "duration": "q", "articulations": ["staccato"] }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m3-1", "keys": ["c/5"], "duration": "8", "slurToNoteId": "pixel-m3-4", "slurPlacement": "above" },
+        { "id": "pixel-m3-2", "keys": ["d/5"], "duration": "8" },
+        { "id": "pixel-m3-3", "keys": ["e/5"], "duration": "8" },
+        { "id": "pixel-m3-4", "keys": ["g/5"], "duration": "8" },
+        { "id": "pixel-m3-5", "keys": ["a/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "pixel-m3-6", "keys": ["g/5"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "bass": [
+        { "id": "pixel-m3-b1", "keys": ["a/2", "e/3"], "duration": "h" },
+        { "id": "pixel-m3-b2", "keys": ["f/2", "c/3"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m4-1", "keys": ["e/5", "g/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "pixel-m4-2", "keys": ["d/5", "f/5"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m4-3", "keys": ["c/5", "e/5", "g/5"], "duration": "h", "articulations": ["accent"] }
+      ],
+      "bass": [
+        { "id": "pixel-m4-b1", "keys": ["g/2", "d/3"], "duration": "h" },
+        { "id": "pixel-m4-b2", "keys": ["c/3", "g/3"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m5-1", "keys": ["g/5"], "duration": "8", "dynamic": "f", "articulations": ["staccato"] },
+        { "id": "pixel-m5-2", "keys": ["a/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-3", "keys": ["g/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-4", "keys": ["e/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-5", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-6", "keys": ["e/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-7", "keys": ["f/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m5-8", "keys": ["d/5"], "duration": "8", "articulations": ["accent"] }
+      ],
+      "bass": [
+        { "id": "pixel-m5-b1", "keys": ["e/2", "b/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m5-b2", "keys": ["a/2", "e/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m5-b3", "keys": ["d/3", "a/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "pixel-m5-b4", "keys": ["g/2", "d/3"], "duration": "q", "articulations": ["staccato"] }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m6-1", "keys": ["c/5"], "duration": "8", "slurToNoteId": "pixel-m6-4", "slurPlacement": "above" },
+        { "id": "pixel-m6-2", "keys": ["e/5"], "duration": "8" },
+        { "id": "pixel-m6-3", "keys": ["g/5"], "duration": "8" },
+        { "id": "pixel-m6-4", "keys": ["b/5"], "duration": "8" },
+        { "id": "pixel-m6-5", "keys": ["c/6"], "duration": "q", "articulations": ["accent"] },
+        { "id": "pixel-m6-6", "keys": ["g/5"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "bass": [
+        { "id": "pixel-m6-b1", "keys": ["c/3", "g/3"], "duration": "h" },
+        { "id": "pixel-m6-b2", "keys": ["g/2", "d/3"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m7-1", "keys": ["a/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m7-2", "keys": ["f/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m7-3", "keys": ["d/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m7-4", "keys": ["f/5"], "duration": "8", "articulations": ["staccato"] },
+        { "id": "pixel-m7-5", "keys": ["g/5"], "duration": "q", "articulations": ["accent"] },
+        { "id": "pixel-m7-6", "keys": ["b/4"], "duration": "q", "articulations": ["tenuto"] }
+      ],
+      "bass": [
+        { "id": "pixel-m7-b1", "keys": ["f/2", "c/3"], "duration": "h" },
+        { "id": "pixel-m7-b2", "keys": ["g/2", "d/3"], "duration": "h" }
+      ]
+    },
+    {
+      "treble": [
+        { "id": "pixel-m8-1", "keys": ["c/5", "e/5", "g/5", "c/6"], "duration": "w", "dynamic": "f", "articulations": ["fermata"] }
+      ],
+      "bass": [
+        { "id": "pixel-m8-b1", "keys": ["c/2", "g/2", "c/3"], "duration": "w", "pedalStart": true, "pedalEnd": true }
+      ]
+    }
+  ],
+  "createdAt": 1790730000000,
+  "updatedAt": 1790730000000
+}

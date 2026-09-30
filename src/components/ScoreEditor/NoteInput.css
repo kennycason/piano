@@ -1,0 +1,246 @@
+.note-input {
+  flex: 0 0 auto;
+  width: 100%;
+  background: #1e1e2e;
+  border-top: 1px solid #313244;
+  box-shadow: 0 -8px 24px rgba(17, 17, 27, 0.22);
+  z-index: 10;
+}
+
+.note-input-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 4px 16px;
+}
+
+.note-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-target {
+  color: #89b4fa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chord-mode-btn,
+.edit-chord-btn,
+.update-chord-btn {
+  border: 1px solid #585b70;
+  border-radius: 4px;
+  padding: 4px 10px;
+  background: #313244;
+  color: #cdd6f4;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chord-mode-btn:hover,
+.edit-chord-btn:hover,
+.update-chord-btn:hover {
+  background: #45475a;
+}
+
+.chord-mode-btn.active {
+  background: #89b4fa;
+  border-color: #89b4fa;
+  color: #1e1e2e;
+}
+
+.update-chord-btn {
+  background: #45475a;
+  border-color: #6c7086;
+}
+
+.selection-hint {
+  color: #6c7086;
+  font-size: 11px;
+}
+
+.add-note-btn {
+  background: #a6e3a1;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-note-btn:hover {
+  background: #b8f0b4;
+}
+
+.clear-btn {
+  background: #45475a;
+  color: #cdd6f4;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  background: #585b70;
+}
+
+/* Piano keyboard */
+.piano-keyboard {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 0 8px;
+}
+
+.piano-clef-labels {
+  position: relative;
+  height: 16px;
+  min-width: 780px;
+}
+
+.clef-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bass-label {
+  color: #f9e2af;
+}
+
+.treble-label {
+  color: #89b4fa;
+}
+
+.piano-keys-area {
+  position: relative;
+  width: 100%;
+  min-width: 780px;
+  height: clamp(108px, 15vh, 150px);
+}
+
+.piano-white-keys {
+  display: flex;
+  height: 100%;
+  gap: 1px;
+  padding-inline: 1px;
+}
+
+.piano-white-key {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  background: #e8e8e8;
+  border: 1px solid #aaa;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  transition: background 0.08s;
+}
+
+.piano-white-key:hover {
+  background: #cde4ff;
+}
+
+.piano-white-key:active {
+  background: #a0c4f0;
+}
+
+.piano-white-key.selected {
+  background: #89b4fa;
+  border-color: #7aa8f0;
+}
+
+.piano-white-key.playing {
+  background: linear-gradient(180deg, #e8e8e8 0%, #f7a8bc 100%);
+  border-color: #f38ba8;
+  box-shadow: inset 0 -8px 18px rgba(220, 38, 38, 0.24);
+}
+
+.piano-white-key.selected.playing {
+  background: linear-gradient(180deg, #89b4fa 0%, #f38ba8 100%);
+}
+
+.piano-white-key.c-marker {
+  border-bottom: 2px solid #f9e2af;
+}
+
+.white-key-label {
+  font-size: 7px;
+  color: #888;
+  user-select: none;
+  pointer-events: none;
+}
+
+.piano-white-key.selected .white-key-label {
+  color: #1e1e2e;
+  font-weight: 600;
+}
+
+.piano-black-keys {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 56%;
+  pointer-events: none;
+}
+
+.piano-black-key {
+  position: absolute;
+  width: clamp(10px, 1.2vw, 18px);
+  height: 100%;
+  background: #2a2a2a;
+  border: 1px solid #111;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.08s;
+  z-index: 1;
+  transform: translateX(-50%);
+}
+
+.piano-black-key:hover {
+  background: #4a5568;
+}
+
+.piano-black-key:active {
+  background: #667;
+}
+
+.piano-black-key.selected {
+  background: #89b4fa;
+  border-color: #7aa8f0;
+}
+
+.piano-black-key.playing {
+  background: #f38ba8;
+  border-color: #ffb4c6;
+  box-shadow: 0 0 12px rgba(243, 139, 168, 0.75);
+}
+
+.piano-black-key.selected.playing {
+  background: linear-gradient(180deg, #89b4fa, #f38ba8);
+}
+
+@media (max-height: 760px) {
+  .piano-keys-area {
+    height: 104px;
+  }
+}

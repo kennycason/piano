@@ -1,0 +1,129 @@
+{
+  "id": "fixture-teacher-duet-single-bass",
+  "title": "Teacher Duet — Shared Bass Staff",
+  "tempo": 88,
+  "timeSignature": [4, 4],
+  "keySignature": "C",
+  "staffLayout": "bass-only",
+  "voiceLabels": {
+    "bass": ["R.H.", "L.H."]
+  },
+  "measures": [
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m1-rh-1", "keys": ["d/3"], "duration": "w", "isRest": true }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m1-lh-1", "keys": ["c/3"], "duration": "q", "dynamic": "mp", "articulations": ["staccato"] },
+        { "id": "shared-m1-lh-2", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m1-lh-3", "keys": ["b/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m1-lh-4", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m2-rh-1", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m2-rh-2", "keys": ["d/3", "f/3"], "duration": "8", "accidentals": ["#", "#"], "slurToNoteId": "shared-m2-rh-3", "slurPlacement": "above" },
+        { "id": "shared-m2-rh-3", "keys": ["e/3", "g/3"], "duration": "8", "accidentals": [null, "#"] },
+        { "id": "shared-m2-rh-4", "keys": ["d/3"], "duration": "8", "isRest": true },
+        { "id": "shared-m2-rh-5", "keys": ["d#/3", "f#/3"], "duration": "8", "suppressAccidentals": true, "slurToNoteId": "shared-m2-rh-6", "slurPlacement": "above" },
+        { "id": "shared-m2-rh-6", "keys": ["e/3", "g#/3"], "duration": "q", "suppressAccidentals": true }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m2-lh-1", "keys": ["g/2"], "duration": "q" },
+        { "id": "shared-m2-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m2-lh-3", "keys": ["d/3"], "duration": "h", "isRest": true }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m3-rh-1", "keys": ["d/3"], "duration": "w", "isRest": true }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m3-lh-1", "keys": ["b/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m3-lh-2", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m3-lh-3", "keys": ["c/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m3-lh-4", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m4-rh-1", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m4-rh-2", "keys": ["d/3", "f/3"], "duration": "8", "accidentals": ["#", "#"], "slurToNoteId": "shared-m4-rh-3", "slurPlacement": "above" },
+        { "id": "shared-m4-rh-3", "keys": ["e/3", "g/3"], "duration": "8", "accidentals": [null, "#"] },
+        { "id": "shared-m4-rh-4", "keys": ["d/3"], "duration": "8", "isRest": true },
+        { "id": "shared-m4-rh-5", "keys": ["d#/3", "f#/3"], "duration": "8", "suppressAccidentals": true, "slurToNoteId": "shared-m4-rh-6", "slurPlacement": "above" },
+        { "id": "shared-m4-rh-6", "keys": ["e/3", "g#/3"], "duration": "q", "suppressAccidentals": true }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m4-lh-1", "keys": ["g/2"], "duration": "q" },
+        { "id": "shared-m4-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m4-lh-3", "keys": ["d/3"], "duration": "h", "isRest": true }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m5-rh-1", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m5-rh-2", "keys": ["c/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m5-rh-3", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m5-rh-4", "keys": ["d/3"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m5-lh-1", "keys": ["c/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m5-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m5-lh-3", "keys": ["d/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m5-lh-4", "keys": ["d/3"], "duration": "q", "isRest": true }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m6-rh-1", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m6-rh-2", "keys": ["d/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m6-rh-3", "keys": ["d/3"], "duration": "h", "isRest": true }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m6-lh-1", "keys": ["e/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m6-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m6-lh-3", "keys": ["f/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m6-lh-4", "keys": ["a/2"], "duration": "q", "articulations": ["staccato"] }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m7-rh-1", "keys": ["d/3"], "duration": "8", "isRest": true },
+        { "id": "shared-m7-rh-2", "keys": ["d/3"], "duration": "8", "accidentals": ["#"], "slurToNoteId": "shared-m7-rh-4", "slurPlacement": "above" },
+        { "id": "shared-m7-rh-3", "keys": ["e/3"], "duration": "8" },
+        { "id": "shared-m7-rh-4", "keys": ["g/3"], "duration": "8" },
+        { "id": "shared-m7-rh-5", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m7-rh-6", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m7-lh-1", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m7-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m7-lh-3", "keys": ["b/2"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "shared-m7-lh-4", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] }
+      ]]
+    },
+    {
+      "treble": [],
+      "bass": [
+        { "id": "shared-m8-rh-1", "keys": ["c/3", "e/3"], "duration": "w" }
+      ],
+      "additionalBassVoices": [[
+        { "id": "shared-m8-lh-1", "keys": ["d/3"], "duration": "q", "isRest": true },
+        { "id": "shared-m8-lh-2", "keys": ["f/2"], "duration": "8", "accidentals": ["#"], "slurToNoteId": "shared-m8-lh-3", "slurPlacement": "below" },
+        { "id": "shared-m8-lh-3", "keys": ["g/2"], "duration": "8" },
+        { "id": "shared-m8-lh-4", "keys": ["c/2"], "duration": "h" }
+      ]]
+    }
+  ],
+  "createdAt": 1790713298000,
+  "updatedAt": 1790713298000
+}

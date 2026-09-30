@@ -1,0 +1,221 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #1e1e2e;
+  border-bottom: 1px solid #313244;
+  align-items: center;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+  border-right: 1px solid #45475a;
+}
+
+.toolbar-section:last-child {
+  border-right: none;
+}
+
+.toolbar-label {
+  font-size: 10px;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 2px;
+}
+
+.toolbar-btn {
+  background: #313244;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 32px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #45475a;
+  border-color: #585b70;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.active {
+  background: #89b4fa;
+  color: #1e1e2e;
+  border-color: #89b4fa;
+}
+
+.toolbar-btn.note-icon-btn {
+  height: 30px;
+  min-width: 35px;
+  padding: 1px 4px;
+}
+
+.notation-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Bravura, Academico, serif;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+.duration-glyph {
+  width: 22px;
+  height: 24px;
+  font-size: 26px;
+}
+
+.whole-note-glyph {
+  transform: translateY(-2px);
+}
+
+.stemmed-note-glyph {
+  transform: translateY(8px);
+}
+
+.rest-glyph,
+.accidental-glyph {
+  font-size: 27px;
+}
+
+.dynamic-glyph {
+  min-width: 23px;
+  font-size: 28px;
+}
+
+.articulation-glyph {
+  min-width: 25px;
+  font-size: 29px;
+}
+
+.dotted-note-glyph {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 27px;
+  height: 24px;
+}
+
+.dotted-note-glyph .augmentation-dot-glyph {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  font-size: 17px;
+}
+
+.pedal-action-btn {
+  min-width: 58px;
+  padding-inline: 7px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.rest-position-btn {
+  min-width: 50px;
+  padding-inline: 7px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.slur-tool-btn {
+  position: relative;
+}
+
+.slur-tool-btn.pending {
+  box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.28);
+}
+
+.slur-step {
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #f9e2af;
+  color: #1e1e2e;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.toolbar-btn.add-btn {
+  background: #1e4620;
+  border-color: #2d6930;
+  color: #a6e3a1;
+}
+
+.toolbar-btn.add-btn:hover {
+  background: #2d6930;
+}
+
+.toolbar-btn.danger-btn {
+  background: #4e2028;
+  border-color: #6e2d38;
+  color: #f38ba8;
+}
+
+.toolbar-btn.danger-btn:hover {
+  background: #6e2d38;
+}
+
+/* Tooltip system */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-wrapper::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #11111b;
+  color: #cdd6f4;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #45475a;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 24px));
+  white-space: normal;
+  box-sizing: border-box;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.tooltip-wrapper:hover::after {
+  opacity: 1;
+  transition-delay: 0.4s;
+}

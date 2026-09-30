@@ -1,0 +1,65 @@
+{
+  "id": "fixture-orbiting-ruins-first-steps",
+  "title": "Orbiting Ruins — First Steps",
+  "tempo": 58,
+  "timeSignature": [4, 4],
+  "keySignature": "G",
+  "staffLayout": "grand",
+  "voiceLabels": { "treble": ["R.H."], "bass": ["L.H."] },
+  "measures": [
+    {
+      "treble": [
+        { "id": "orbit-easy-m1-1", "keys": ["b/4"], "duration": "h", "dynamic": "pp" },
+        { "id": "orbit-easy-m1-2", "keys": ["e/5"], "duration": "h" }
+      ],
+      "bass": [{ "id": "orbit-easy-m1-b1", "keys": ["e/2"], "duration": "w", "pedalStart": true }]
+    },
+    {
+      "treble": [
+        { "id": "orbit-easy-m2-1", "keys": ["g/5"], "duration": "h" },
+        { "id": "orbit-easy-m2-2", "keys": ["f/5"], "duration": "h" }
+      ],
+      "bass": [{ "id": "orbit-easy-m2-b1", "keys": ["b/2"], "duration": "w", "pedalEnd": true }]
+    },
+    {
+      "treble": [
+        { "id": "orbit-easy-m3-1", "keys": ["e/5"], "duration": "q", "slurToNoteId": "orbit-easy-m3-4", "slurPlacement": "above" },
+        { "id": "orbit-easy-m3-2", "keys": ["g/5"], "duration": "q" },
+        { "id": "orbit-easy-m3-3", "keys": ["b/5"], "duration": "q" },
+        { "id": "orbit-easy-m3-4", "keys": ["a/5"], "duration": "q" }
+      ],
+      "bass": [{ "id": "orbit-easy-m3-b1", "keys": ["c/3"], "duration": "w", "pedalStart": true, "pedalEnd": true }]
+    },
+    {
+      "treble": [{ "id": "orbit-easy-m4-1", "keys": ["f/5"], "duration": "w", "articulations": ["fermata"] }],
+      "bass": [{ "id": "orbit-easy-m4-b1", "keys": ["b/2"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "orbit-easy-m5-1", "keys": ["e/5"], "duration": "h", "dynamic": "p" },
+        { "id": "orbit-easy-m5-2", "keys": ["b/5"], "duration": "h" }
+      ],
+      "bass": [{ "id": "orbit-easy-m5-b1", "keys": ["e/2"], "duration": "w", "pedalStart": true }]
+    },
+    {
+      "treble": [
+        { "id": "orbit-easy-m6-1", "keys": ["a/5"], "duration": "h" },
+        { "id": "orbit-easy-m6-2", "keys": ["f/5"], "duration": "h" }
+      ],
+      "bass": [{ "id": "orbit-easy-m6-b1", "keys": ["d/3"], "duration": "w", "pedalEnd": true }]
+    },
+    {
+      "treble": [
+        { "id": "orbit-easy-m7-1", "keys": ["g/5"], "duration": "h" },
+        { "id": "orbit-easy-m7-2", "keys": ["f/5"], "duration": "h" }
+      ],
+      "bass": [{ "id": "orbit-easy-m7-b1", "keys": ["b/2"], "duration": "w" }]
+    },
+    {
+      "treble": [{ "id": "orbit-easy-m8-1", "keys": ["e/5", "g/5"], "duration": "w", "dynamic": "pp", "articulations": ["fermata"] }],
+      "bass": [{ "id": "orbit-easy-m8-b1", "keys": ["e/2"], "duration": "w", "pedalStart": true, "pedalEnd": true }]
+    }
+  ],
+  "createdAt": 1790730003000,
+  "updatedAt": 1790730003000
+}

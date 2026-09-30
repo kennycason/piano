@@ -1,0 +1,146 @@
+{
+  "id": "fixture-alouette-beginner",
+  "title": "Alouette — Beginner Piano",
+  "tempo": 118,
+  "timeSignature": [4, 4],
+  "keySignature": "G",
+  "staffLayout": "grand",
+  "voiceLabels": { "treble": ["Melody"], "bass": ["L.H."] },
+  "measures": [
+    {
+      "treble": [
+        { "id": "alouette-m1-1", "keys": ["g/4"], "duration": "q", "dotted": true, "dynamic": "mf" },
+        { "id": "alouette-m1-2", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m1-3", "keys": ["b/4"], "duration": "q" },
+        { "id": "alouette-m1-4", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m1-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m2-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m2-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m2-3", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m2-4", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m2-5", "keys": ["g/4"], "duration": "q" },
+        { "id": "alouette-m2-6", "keys": ["d/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m2-b1", "keys": ["d/3", "a/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m3-1", "keys": ["g/4"], "duration": "q", "dotted": true },
+        { "id": "alouette-m3-2", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m3-3", "keys": ["b/4"], "duration": "q" },
+        { "id": "alouette-m3-4", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m3-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m4-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m4-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m4-3", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m4-4", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m4-5", "keys": ["g/4"], "duration": "h" }
+      ],
+      "bass": [{ "id": "alouette-m4-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m5-1", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m5-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m5-3", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m5-4", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m5-5", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m5-6", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m5-7", "keys": ["d/5"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m5-b1", "keys": ["c/3", "g/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m6-1", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m6-2", "keys": ["e/5"], "duration": "8" },
+        { "id": "alouette-m6-3", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m6-4", "keys": ["c/5"], "duration": "8" },
+        { "id": "alouette-m6-5", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m6-6", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m6-7", "keys": ["g/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m6-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m7-1", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m7-2", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m7-3", "keys": ["d/5"], "duration": "q" },
+        { "id": "alouette-m7-4", "keys": ["d/4"], "duration": "8" },
+        { "id": "alouette-m7-5", "keys": ["d/4"], "duration": "8" },
+        { "id": "alouette-m7-6", "keys": ["d/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m7-b1", "keys": ["d/3", "a/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m8-1", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m8-2", "keys": ["d/5"], "duration": "8" },
+        { "id": "alouette-m8-3", "keys": ["d/5"], "duration": "q" },
+        { "id": "alouette-m8-4", "keys": ["d/4"], "duration": "8" },
+        { "id": "alouette-m8-5", "keys": ["d/4"], "duration": "8" },
+        { "id": "alouette-m8-6", "keys": ["d/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m8-b1", "keys": ["d/3", "a/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m9-1", "keys": ["d/5"], "duration": "q" },
+        { "id": "alouette-m9-2", "keys": ["c/5"], "duration": "q" },
+        { "id": "alouette-m9-3", "keys": ["b/4"], "duration": "q" },
+        { "id": "alouette-m9-4", "keys": ["a/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m9-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m10-1", "keys": ["g/4"], "duration": "q", "dotted": true },
+        { "id": "alouette-m10-2", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m10-3", "keys": ["b/4"], "duration": "q" },
+        { "id": "alouette-m10-4", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m10-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m11-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m11-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m11-3", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m11-4", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m11-5", "keys": ["g/4"], "duration": "q" },
+        { "id": "alouette-m11-6", "keys": ["d/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m11-b1", "keys": ["d/3", "a/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m12-1", "keys": ["g/4"], "duration": "q", "dotted": true },
+        { "id": "alouette-m12-2", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m12-3", "keys": ["b/4"], "duration": "q" },
+        { "id": "alouette-m12-4", "keys": ["b/4"], "duration": "q" }
+      ],
+      "bass": [{ "id": "alouette-m12-b1", "keys": ["g/2", "d/3"], "duration": "w" }]
+    },
+    {
+      "treble": [
+        { "id": "alouette-m13-1", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m13-2", "keys": ["g/4"], "duration": "8" },
+        { "id": "alouette-m13-3", "keys": ["a/4"], "duration": "8" },
+        { "id": "alouette-m13-4", "keys": ["b/4"], "duration": "8" },
+        { "id": "alouette-m13-5", "keys": ["g/4", "b/4"], "duration": "h", "articulations": ["fermata"] }
+      ],
+      "bass": [{ "id": "alouette-m13-b1", "keys": ["g/2", "d/3", "g/3"], "duration": "w" }]
+    }
+  ],
+  "createdAt": 1790730005000,
+  "updatedAt": 1790730005000
+}
