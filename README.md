@@ -2,6 +2,8 @@
 
 A local-first piano notation editor built with React, TypeScript, VexFlow, and Tone.js. Compose on a grand staff, enter notes or chords from a full 88-key on-screen piano, annotate a score, and play it back with synchronized visual guidance.
 
+<a href="https://kennycason.com/piano/" target="_blank">Demo</a>
+
 ## Screenshots
 
 <p align="center">
