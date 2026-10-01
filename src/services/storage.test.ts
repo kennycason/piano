@@ -2,8 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import marinesHymn from '../../songs/marines-hymn.json';
 import lowerNorfair from '../../songs/lower-norfair.json';
 import moonlightSonata from '../../songs/moonlight-sonata.json';
+import alouetteBeginner from '../../songs/alouette-beginner.json';
 import { createDefaultSong, CURRENT_SONG_SCHEMA_VERSION } from '../models/song';
-import { saveSong, validateAndMigrateSong } from './storage';
+import {
+  DEFAULT_STARTER_SONG_ID,
+  initializeSongLibrary,
+  saveSong,
+  validateAndMigrateSong,
+} from './storage';
 
 const fixtures = import.meta.glob('../../songs/*.json', {
   eager: true,
@@ -56,6 +62,26 @@ describe('song validation and migration', () => {
       .toBe('drum-kit');
     expect(moonlight.song?.keySignature).toBe('E');
     expect(moonlight.song?.tracks[0].staffClefs?.treble).toBe('treble');
+  });
+
+  it('uses Alouette as the first-run song', () => {
+    expect(DEFAULT_STARTER_SONG_ID).toBe('fixture-alouette-beginner');
+  });
+
+  it('adds Lower Norfair when upgrading an existing starter library', () => {
+    const stored = new Map<string, string>([
+      ['piano_sheet_songs', JSON.stringify([alouetteBeginner])],
+      ['piano_sheet_sample_library_version', '3'],
+    ]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => { stored.set(key, value); },
+    });
+
+    const songs = initializeSongLibrary();
+
+    expect(songs.some((song) => song.id === 'lower-norfair-multitrack')).toBe(true);
+    expect(stored.get('piano_sheet_sample_library_version')).toBe('4');
   });
 
   it('rejects unsupported keys, overflowing voices, and duplicate note ids', () => {
