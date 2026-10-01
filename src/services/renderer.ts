@@ -101,16 +101,11 @@ export function getPlaybackCursorX(
   const clampedProgress = Math.max(0, Math.min(1, progress));
   const first = anchors[0];
   const last = anchors[anchors.length - 1];
-  if (clampedProgress <= first.progress) return first.x;
-  if (clampedProgress >= last.progress) return last.x;
-
-  const nextIndex = anchors.findIndex((anchor) => anchor.progress >= clampedProgress);
-  if (nextIndex <= 0) return first.x;
-  const previous = anchors[nextIndex - 1];
-  const next = anchors[nextIndex];
-  const segmentProgress = (clampedProgress - previous.progress)
-    / Math.max(Number.EPSILON, next.progress - previous.progress);
-  return previous.x + (next.x - previous.x) * segmentProgress;
+  // Engraving engines vary spacing around accidentals, rests, and chords.
+  // Following every glyph therefore produces visible micro-accelerations even
+  // at a steady tempo. The playhead is a progress indicator, so keep its speed
+  // constant between the measure's first position and the next downbeat.
+  return first.x + (last.x - first.x) * clampedProgress;
 }
 
 type PlaybackAnchorKind = 'note' | 'rest' | 'measure-rest' | 'spacer';

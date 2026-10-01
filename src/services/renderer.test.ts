@@ -27,19 +27,19 @@ describe('score voice labels', () => {
 describe('playback cursor position', () => {
   const anchors = [
     { progress: 0, x: 100 },
-    { progress: 0.25, x: 150 },
+    { progress: 0.25, x: 180 },
     { progress: 1, x: 300 },
   ];
 
-  it('lands on the rendered note position at each rhythmic onset', () => {
+  it('starts and ends on the rendered measure positions', () => {
     expect(getPlaybackCursorX(anchors, 0)).toBe(100);
-    expect(getPlaybackCursorX(anchors, 0.25)).toBe(150);
     expect(getPlaybackCursorX(anchors, 1)).toBe(300);
   });
 
-  it('interpolates between note positions and clamps outside the measure', () => {
+  it('moves at a constant speed and clamps outside the measure', () => {
     expect(getPlaybackCursorX(anchors, 0.125)).toBe(125);
     expect(getPlaybackCursorX(anchors, 0.5)).toBe(200);
+    expect(getPlaybackCursorX(anchors, 0.75)).toBe(250);
     expect(getPlaybackCursorX(anchors, -1)).toBe(100);
     expect(getPlaybackCursorX(anchors, 2)).toBe(300);
   });

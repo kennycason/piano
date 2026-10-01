@@ -849,7 +849,13 @@ export class PlaybackEngine {
 
   getCursorState(): PlaybackCursorState | null {
     if (!this.tone || this.cursorSegments.length === 0) return null;
-    const seconds = this.tone.getTransport().seconds;
+    const transport = this.tone.getTransport();
+    const draw = this.tone.getDraw();
+    // Transport.seconds is evaluated with Tone's scheduler look-ahead (100 ms
+    // by default), which makes a DOM playhead visibly lead audio and Draw-based
+    // note highlights. Use the same immediate audio clock and anticipation that
+    // Tone.Draw uses for visual callbacks instead.
+    const seconds = transport.getSecondsAtTime(this.tone.immediate() + draw.anticipation);
     const segment = this.cursorSegments.find((candidate) => (
       seconds >= candidate.startTime && seconds < candidate.endTime
     )) ?? (seconds < this.cursorSegments[0].startTime ? this.cursorSegments[0] : null);
