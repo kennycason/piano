@@ -20,6 +20,7 @@ import {
   getMeasureBeatCount,
   getMeasureCapacity,
   getMeasureVoices,
+  getNoteBeatValue,
   getTieIndexes,
 } from '../models/song';
 import type { EditableScore, NoteEntry, SlurPlacement, StaffClef } from '../models/song';
@@ -27,7 +28,9 @@ import type { EditableScore, NoteEntry, SlurPlacement, StaffClef } from '../mode
 const DEFAULT_STAVE_WIDTH = 280;
 const MIN_STAVE_WIDTH = 240;
 const START_X = 40;
-const HEADER_HEIGHT = 78;
+const HEADER_HEIGHT = 90;
+const TITLE_BASELINE = 46;
+const TEMPO_BASELINE = 75;
 const TREBLE_OFFSET = 18;
 const BASS_OFFSET = 128;
 const ROW_HEIGHT = 250;
@@ -36,6 +39,23 @@ const SINGLE_ROW_HEIGHT = 170;
 const MAX_MEASURES_PER_ROW = 4;
 const UPPER_VOICE_LABEL_OFFSET = 28;
 const LOWER_VOICE_LABEL_OFFSET = 96;
+
+export function getRenderedVoiceLabel(label: string | undefined, trackName: string): string | undefined {
+  const trimmedLabel = label?.trim();
+  if (!trimmedLabel) return undefined;
+  const normalizedLabel = trimmedLabel.toLocaleLowerCase();
+  const normalizedTrackName = trackName.trim().toLocaleLowerCase();
+  const isHandLabel = /^(?:r\.?\s*h\.?|l\.?\s*h\.?|right hand|left hand)$/i.test(trimmedLabel);
+  if (isHandLabel) return trimmedLabel;
+  if (normalizedLabel === normalizedTrackName) return undefined;
+
+  const trackPrefix = `${normalizedTrackName} · `;
+  if (normalizedTrackName && normalizedLabel.startsWith(trackPrefix)) {
+    const remainder = trimmedLabel.slice(trackPrefix.length).trim();
+    return remainder ? `${remainder[0].toUpperCase()}${remainder.slice(1)}` : undefined;
+  }
+  return trimmedLabel;
+}
 
 function durationToVex(dur: string, isRest?: boolean, dotted?: boolean): string {
   let d = dur;
@@ -68,8 +88,62 @@ export interface RenderResult {
     width: number;
     height: number;
     voiceSplitY: number;
+    playbackAnchors: Array<{ progress: number; x: number }>;
   }>;
   totalHeight: number;
+}
+
+export function getPlaybackCursorX(
+  anchors: ReadonlyArray<{ progress: number; x: number }>,
+  progress: number,
+): number | null {
+  if (anchors.length === 0) return null;
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  const first = anchors[0];
+  const last = anchors[anchors.length - 1];
+  if (clampedProgress <= first.progress) return first.x;
+  if (clampedProgress >= last.progress) return last.x;
+
+  const nextIndex = anchors.findIndex((anchor) => anchor.progress >= clampedProgress);
+  if (nextIndex <= 0) return first.x;
+  const previous = anchors[nextIndex - 1];
+  const next = anchors[nextIndex];
+  const segmentProgress = (clampedProgress - previous.progress)
+    / Math.max(Number.EPSILON, next.progress - previous.progress);
+  return previous.x + (next.x - previous.x) * segmentProgress;
+}
+
+type PlaybackAnchorKind = 'note' | 'rest' | 'measure-rest' | 'spacer';
+
+export function shouldUsePlaybackAnchor(
+  kind: PlaybackAnchorKind,
+  measureHasSoundingNotes: boolean,
+): boolean {
+  return kind !== 'measure-rest' || !measureHasSoundingNotes;
+}
+
+export function getPlaybackAnchorX(
+  candidates: ReadonlyArray<{ x: number; kind: PlaybackAnchorKind }>,
+): number | null {
+  if (candidates.length === 0) return null;
+  const soundingNotes = candidates.filter((candidate) => candidate.kind === 'note');
+  const visibleRests = candidates.filter((candidate) => candidate.kind === 'rest');
+  const preferred = soundingNotes.length > 0
+    ? soundingNotes
+    : visibleRests.length > 0
+      ? visibleRests
+      : candidates;
+  // Independently formatted staves can place simultaneous symbols a few pixels
+  // apart. The leftmost onset ensures audio never precedes the playhead.
+  return Math.min(...preferred.map((candidate) => candidate.x));
+}
+
+export function getContinuousPlaybackEndX(
+  current: Pick<RenderResult['measureRegions'][number], 'x' | 'y'>,
+  next: Pick<RenderResult['measureRegions'][number], 'x' | 'y' | 'playbackAnchors'> | undefined,
+): number | null {
+  if (!next || next.x <= current.x || Math.abs(next.y - current.y) > 0.5) return null;
+  return next.playbackAnchors[0]?.x ?? null;
 }
 
 export interface SelectedMeasure {
@@ -150,13 +224,19 @@ export function renderSong(
     context.setFont('Georgia', titleFontSize, 'bold');
     titleWidth = context.measureText(title).width;
   }
-  context.fillText(title, Math.max(START_X, (totalWidth - titleWidth) / 2), 34);
+  context.fillText(title, Math.max(START_X, (totalWidth - titleWidth) / 2), TITLE_BASELINE);
   context.setFont('Arial', 12, 'normal');
-  context.fillText(`♩ = ${song.tempo}`, START_X + 12, 63);
+  context.fillText(`♩ = ${song.tempo}`, START_X + 12, TEMPO_BASELINE);
   context.restore();
 
   for (let mi = 0; mi < song.measures.length; mi++) {
     const measure = song.measures[mi];
+    const playbackAnchorCandidates: Array<{
+      progress: number;
+      x: number;
+      kind: PlaybackAnchorKind;
+    }> = [];
+    const currentMeasureRegions: RenderResult['measureRegions'] = [];
     const row = Math.floor(mi / measuresPerRow);
     const col = mi % measuresPerRow;
     const x = START_X + col * staveWidth;
@@ -174,7 +254,7 @@ export function renderSong(
     for (const clef of visibleClefs) {
       const displayClef = song.staffClefs?.[clef] ?? clef;
       const regionY = staveYs[clef] + 25;
-      measureRegions.push({
+      const measureRegion: RenderResult['measureRegions'][number] = {
         measureIdx: mi,
         clef,
         x,
@@ -182,7 +262,10 @@ export function renderSong(
         width: staveWidth,
         height: 70,
         voiceSplitY: staveYs[clef] + 60,
-      });
+        playbackAnchors: [],
+      };
+      measureRegions.push(measureRegion);
+      currentMeasureRegions.push(measureRegion);
       if (selectedMeasure?.measureIdx === mi && selectedMeasure.clef === clef) {
         context.save();
         context.setFillStyle('#eff6ff');
@@ -212,12 +295,14 @@ export function renderSong(
     if (col === 0 && isSingleStaff) {
       const labels = song.voiceLabels?.[firstClef];
       context.setFont('Arial', 11, 'bold');
-      if (labels?.[0]) context.fillText(labels[0], x + 12, staveYs[firstClef] + UPPER_VOICE_LABEL_OFFSET);
-      if (labels?.[1]) context.fillText(labels[1], x + 12, staveYs[firstClef] + LOWER_VOICE_LABEL_OFFSET);
+      const upperLabel = getRenderedVoiceLabel(labels?.[0], song.name);
+      const lowerLabel = getRenderedVoiceLabel(labels?.[1], song.name);
+      if (upperLabel) context.fillText(upperLabel, x + 12, staveYs[firstClef] + UPPER_VOICE_LABEL_OFFSET);
+      if (lowerLabel) context.fillText(lowerLabel, x + 12, staveYs[firstClef] + LOWER_VOICE_LABEL_OFFSET);
     } else if (col === 0) {
       context.setFont('Arial', 11, 'bold');
       visibleClefs.forEach((clef) => {
-        const label = song.voiceLabels?.[clef]?.[0];
+        const label = getRenderedVoiceLabel(song.voiceLabels?.[clef]?.[0], song.name);
         if (label) context.fillText(label, x + 12, staveYs[clef] + UPPER_VOICE_LABEL_OFFSET);
       });
     }
@@ -326,7 +411,7 @@ export function renderSong(
           beatValue: song.timeSignature[1],
         }).setStrict(false);
         voice.addTickables(vexNotes);
-        return [{ notes, vexNotes, voice, voiceIdx }];
+        return [{ notes, vexNotes, voice, voiceIdx, isFullMeasureRest }];
       });
 
       if (voiceData.length === 0) continue;
@@ -349,7 +434,7 @@ export function renderSong(
         }
       }
 
-      for (const { notes, vexNotes, voice, voiceIdx } of voiceData) {
+      for (const { notes, vexNotes, voice, voiceIdx, isFullMeasureRest } of voiceData) {
         voice.draw(context, stave);
         const renderedNoteElements = Array.from(
           container.querySelectorAll<SVGGElement>('.vf-stavenote'),
@@ -357,8 +442,23 @@ export function renderSong(
 
         beamsByVoice.get(voiceIdx)?.forEach((beam) => beam.setContext(context).draw());
 
+        let elapsedBeats = 0;
         vexNotes.forEach((vexNote, noteIdx) => {
           const note = notes[noteIdx];
+          playbackAnchorCandidates.push({
+            progress: isFullMeasureRest
+              ? 0.5
+              : Math.max(0, Math.min(1, elapsedBeats / measureCapacity)),
+            x: vexNote.getAbsoluteX(),
+            kind: note.isSpacer
+              ? 'spacer'
+              : isFullMeasureRest
+                ? 'measure-rest'
+                : note.isRest
+                  ? 'rest'
+                  : 'note',
+          });
+          elapsedBeats += getNoteBeatValue(note);
           if (note.isSpacer) return;
           if (noteNameMode === 'inside' && !note.isRest && !note.drumMidi) {
             const hollow = note.duration === 'w' || note.duration === 'h';
@@ -414,7 +514,60 @@ export function renderSong(
         });
       }
     }
+
+    const groupedAnchors = new Map<number, Array<{ x: number; kind: PlaybackAnchorKind }>>();
+    const measureHasSoundingNotes = playbackAnchorCandidates.some(({ kind }) => kind === 'note');
+    playbackAnchorCandidates
+      .filter(({ kind }) => shouldUsePlaybackAnchor(kind, measureHasSoundingNotes))
+      .forEach(({ progress, x: anchorX, kind }) => {
+        const key = Math.round(progress * 1_000_000);
+        const candidates = groupedAnchors.get(key) ?? [];
+        candidates.push({ x: anchorX, kind });
+        groupedAnchors.set(key, candidates);
+      });
+    const firstStave = staves[firstClef];
+    const playbackAnchors = [...groupedAnchors.entries()]
+      .map(([progressKey, candidates]) => ({
+        progress: progressKey / 1_000_000,
+        x: getPlaybackAnchorX(candidates) ?? x + 5,
+      }))
+      .sort((a, b) => a.progress - b.progress);
+    if (playbackAnchors.length === 0 || playbackAnchors[0].progress > 0) {
+      playbackAnchors.unshift({
+        progress: 0,
+        x: firstStave?.getNoteStartX() ?? x + 5,
+      });
+    }
+    playbackAnchors.push({
+      progress: 1,
+      x: firstStave?.getNoteEndX() ?? x + staveWidth - 5,
+    });
+    currentMeasureRegions.forEach((region) => {
+      region.playbackAnchors = playbackAnchors;
+    });
   }
+
+  // On one engraved system, a playhead should travel continuously into the
+  // following downbeat. Using the current barline as the end point and the
+  // next note as the next start point creates a visible jump through the
+  // notation's leading whitespace. Row changes still wrap normally.
+  const referenceRegionByMeasure = new Map<number, RenderResult['measureRegions'][number]>();
+  measureRegions.forEach((region) => {
+    if (!referenceRegionByMeasure.has(region.measureIdx)) {
+      referenceRegionByMeasure.set(region.measureIdx, region);
+    }
+  });
+  referenceRegionByMeasure.forEach((currentRegion, measureIdx) => {
+    const nextRegion = referenceRegionByMeasure.get(measureIdx + 1);
+    const continuousEndX = getContinuousPlaybackEndX(currentRegion, nextRegion);
+    if (continuousEndX === null) return;
+    measureRegions
+      .filter((region) => region.measureIdx === measureIdx)
+      .forEach((region) => {
+        const terminalAnchor = region.playbackAnchors.at(-1);
+        if (terminalAnchor?.progress === 1) terminalAnchor.x = continuousEndX;
+      });
+  });
 
   const drawTie = (startId: string, endId: string) => {
     const start = renderedNotes.get(startId);

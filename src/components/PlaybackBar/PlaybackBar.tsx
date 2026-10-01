@@ -5,10 +5,12 @@ interface PlaybackBarProps {
   songId: string;
   playState: 'stopped' | 'loading' | 'playing' | 'paused';
   loopEnabled: boolean;
+  recordingEnabled: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
   onLoopToggle: () => void;
+  onRecordingToggle: () => void;
   songTitle: string;
   onTitleChange: (title: string) => void;
   currentMeasure: number;
@@ -25,10 +27,12 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   songId,
   playState,
   loopEnabled,
+  recordingEnabled,
   onPlay,
   onPause,
   onStop,
   onLoopToggle,
+  onRecordingToggle,
   songTitle,
   onTitleChange,
   currentMeasure,
@@ -94,6 +98,19 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
               </svg>
             </button>
           )}
+          <button
+            type="button"
+            className={`transport-btn record-btn ${recordingEnabled ? 'active' : ''}`}
+            onClick={onRecordingToggle}
+            title={recordingEnabled
+              ? 'Record notes: on — keyboard input is added to the score'
+              : 'Free Play — keyboard input makes sound without changing the score'}
+            aria-label={recordingEnabled ? 'Turn off note recording and enter Free Play' : 'Turn on note recording'}
+            aria-pressed={recordingEnabled}
+          >
+            <span className="record-dot" aria-hidden="true" />
+            {/*<span className="record-label">Record</span>*/}
+          </button>
           <button
             type="button"
             className={`transport-btn loop-btn ${loopEnabled ? 'active' : ''}`}

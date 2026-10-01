@@ -45,7 +45,12 @@ import {
   importSongFromJson,
   DEFAULT_STARTER_SONG_ID,
 } from './services/storage';
-import { renderSong, type NoteNameMode, type RenderResult } from './services/renderer';
+import {
+  getPlaybackCursorX,
+  renderSong,
+  type NoteNameMode,
+  type RenderResult,
+} from './services/renderer';
 import {
   playbackEngine,
   type InstrumentSound,
@@ -225,6 +230,7 @@ function App() {
   const [playState, setPlayState] = useState<PlayState>('stopped');
   const [soloActiveTrack, setSoloActiveTrack] = useState(false);
   const [loopEnabled, setLoopEnabled] = useState(false);
+  const [recordingEnabled, setRecordingEnabled] = useState(true);
   const [noteNameMode, setNoteNameMode] = useState<NoteNameMode>(getInitialNoteNameMode);
   const [currentPlayMeasure, setCurrentPlayMeasure] = useState(0);
   const [editorMessage, setEditorMessage] = useState<string | null>(null);
@@ -532,9 +538,8 @@ function App() {
     if (!container || !svg || regions.length === 0) return;
 
     const referenceRegion = regions[0];
-    const inset = 5;
-    const x = referenceRegion.x + inset
-      + Math.max(0, Math.min(1, progress)) * (referenceRegion.width - inset * 2);
+    const x = getPlaybackCursorX(referenceRegion.playbackAnchors, progress)
+      ?? referenceRegion.x + Math.max(0, Math.min(1, progress)) * referenceRegion.width;
     const y1 = Math.min(...regions.map((region) => region.y)) - 9;
     const y2 = Math.max(...regions.map((region) => region.y + region.height)) + 9;
     let line = svg.querySelector<SVGLineElement>('.playback-cursor-line');
@@ -1023,6 +1028,11 @@ function App() {
     setEditorMessage(null);
   }, [composerRequest]);
 
+  const handleRecordingToggle = useCallback(() => {
+    if (recordingEnabled) cancelComposerSession();
+    setRecordingEnabled((enabled) => !enabled);
+  }, [cancelComposerSession, recordingEnabled]);
+
   const handleScorePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || slurToolActive) return;
     const noteId = (e.target as Element).closest?.('[data-note-id]')?.getAttribute('data-note-id');
@@ -1436,15 +1446,32 @@ function App() {
   }, []);
 
   const handleInstrumentSoundChange = useCallback((sound: InstrumentSound) => {
-    updateSong((score) => ({ ...score, instrumentSound: sound }));
-    void playbackEngine.selectInstrument(sound).then(() => {
+    if (sound === activeScore.instrumentSound) return;
+    const nextSong = {
+      ...replaceSongTrackFromScore(currentSong, { ...activeScore, instrumentSound: sound }),
+      updatedAt: Date.now(),
+    };
+    setSaveStatus('saving');
+    try {
+      saveSong(nextSong);
+    } catch (error) {
+      setSaveStatus('error');
+      setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+      return;
+    }
+    setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), currentSong]);
+    setRedoStack([]);
+    setCurrentSong(nextSong);
+    setSongs(loadSongs());
+    setSaveStatus('saved');
+    void playbackEngine.setTrackInstrument(activeTrackId, sound).then(() => {
       if (playbackEngine.consumeFallbackSound()) {
         setEditorMessage('Grand Piano samples are unavailable, so Electric Keys will be used for now.');
       }
     }).catch(() => {
       setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     });
-  }, [updateSong]);
+  }, [activeScore, activeTrackId, currentSong]);
 
   const handleSynthControlsChange = useCallback((controls: SynthControls) => {
     const nextScore = { ...activeScore, synthControls: controls };
@@ -1993,10 +2020,12 @@ function App() {
         songId={currentSong.id}
         playState={playState}
         loopEnabled={loopEnabled}
+        recordingEnabled={recordingEnabled}
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
         onLoopToggle={handleLoopToggle}
+        onRecordingToggle={handleRecordingToggle}
         songTitle={currentSong.title}
         onTitleChange={(title) => updateSong((song) => song.title === title ? song : { ...song, title })}
         currentMeasure={currentPlayMeasure}
@@ -2220,7 +2249,7 @@ function App() {
         </div>
       )}
       <NoteInput
-        key={`${activeTrackId}-${composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}`}
+        key={`${activeTrackId}-${recordingEnabled ? 'record' : 'free'}-${composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}`}
         onAddNote={handleAddNote}
         selectedNote={selectedNote}
         session={composerRequest ? { mode: composerRequest.mode, label: composerLabel } : null}
@@ -2235,6 +2264,7 @@ function App() {
         onPreviewNotes={handlePreviewNotes}
         showAllNoteNames={noteNameMode !== 'off'}
         trackKind={activeScore.kind}
+        recordingEnabled={recordingEnabled}
         onUpdateSelectedKeys={(keys) => {
           if (activeScore.kind === 'percussion') {
             const drumMidi = keys.map(pianoKeyToMidi);

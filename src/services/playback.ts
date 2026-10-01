@@ -161,6 +161,7 @@ export class PlaybackEngine {
   private controls: SynthControls = { ...DEFAULT_SYNTH_CONTROLS };
   private activeOutput: PlaybackOutput | null = null;
   private activeOutputs = new Set<PlaybackOutput>();
+  private trackOutputs = new Map<string, PlaybackOutput>();
   private state: 'stopped' | 'playing' | 'paused' = 'stopped';
   private loopEnabled = false;
   private loopEnd = 0;
@@ -414,6 +415,20 @@ export class PlaybackEngine {
     this.activeOutput = output;
   }
 
+  async setTrackInstrument(trackId: string, sound: InstrumentSound): Promise<void> {
+    const request = ++this.instrumentRequest;
+    const output = await this.ensureInstrument(sound);
+    if (request !== this.instrumentRequest) return;
+
+    // Keep already-sounding notes on their original output so changing a preset
+    // does not cut them off. Newly scheduled notes use the replacement output.
+    if (this.state !== 'stopped') {
+      this.trackOutputs.set(trackId, output);
+      this.activeOutputs.add(output);
+    }
+    if (this.visualTrackId === trackId) this.activeOutput = output;
+  }
+
   async previewNotes(keys: string[], sound: InstrumentSound): Promise<void> {
     if (keys.length === 0) return;
     const Tone = await this.getTone();
@@ -484,8 +499,9 @@ export class PlaybackEngine {
     await Tone.start();
     if (playGeneration !== this.generation) return;
 
-    this.activeOutputs = new Set(outputs.values());
-    this.activeOutput = outputs.get(activeTrack.id) ?? null;
+    this.trackOutputs = outputs;
+    this.activeOutputs = new Set(this.trackOutputs.values());
+    this.activeOutput = this.trackOutputs.get(activeTrack.id) ?? null;
     this.state = 'playing';
     const transport = Tone.getTransport();
     transport.stop();
@@ -703,7 +719,7 @@ export class PlaybackEngine {
               ? entry.track.id === this.visualTrackId
               : !this.mutedTrackIds.has(entry.track.id);
             if (!shouldPlay) return;
-            const output = outputs.get(entry.track.id);
+            const output = this.trackOutputs.get(entry.track.id);
             if (note.drumMidi) {
               (output as DrumPlaybackOutput | undefined)?.triggerDrums(
                 note.drumMidi,
@@ -826,6 +842,7 @@ export class PlaybackEngine {
     if (this.tone) this.tone.getTransport().loop = false;
     this.activeOutputs.forEach((output) => output.releaseAll());
     this.activeOutputs.clear();
+    this.trackOutputs.clear();
     this.onActiveKeysCallback?.([]);
     this.cursorSegments = [];
   }

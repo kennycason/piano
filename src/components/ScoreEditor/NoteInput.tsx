@@ -33,6 +33,7 @@ interface NoteInputProps {
   onPreviewNotes: (keys: string[]) => void;
   showAllNoteNames: boolean;
   trackKind: TrackKind;
+  recordingEnabled: boolean;
 }
 
 interface PianoKey {
@@ -125,6 +126,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   onPreviewNotes,
   showAllNoteNames,
   trackKind,
+  recordingEnabled,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => (
     session?.mode === 'edit' && selectedNote && !selectedNote.isRest
@@ -236,7 +238,9 @@ export const NoteInput: React.FC<NoteInputProps> = ({
         <div className="note-input-actions">
           {session && <span className="composer-target">{session.label}</span>}
           <span className="selection-hint">
-            {selectedKeys.size > 0
+            {!recordingEnabled
+              ? 'Free Play · Keyboard notes make sound without changing the score.'
+              : selectedKeys.size > 0
               ? `${selectedKeys.size} note${selectedKeys.size > 1 ? 's' : ''} ${session?.mode === 'add' ? 'active in the bar' : 'selected'}${session ? ' · Press Enter to finish' : ''}`
               : isChordMode
                 ? session?.mode === 'add'
@@ -286,6 +290,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                   if (event.button === 0) onPreviewNotes([key.note]);
                 }}
                 onClick={(e) => {
+                  if (!recordingEnabled) return;
                   if (e.shiftKey || isChordMode || selectedKeys.size > 0) {
                     toggleKey(key.note);
                   }
@@ -318,6 +323,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
                     if (event.button === 0) onPreviewNotes([key.note]);
                   }}
                   onClick={(e) => {
+                    if (!recordingEnabled) return;
                     if (e.shiftKey || isChordMode || selectedKeys.size > 0) {
                       toggleKey(key.note);
                     }

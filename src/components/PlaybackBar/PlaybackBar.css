@@ -1,4 +1,6 @@
 .playback-bar {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto minmax(260px, 1fr);
   align-items: center;
@@ -175,6 +177,35 @@
   opacity: 1;
 }
 
+.transport-btn.record-btn {
+  width: auto;
+  min-width: 34px;
+  padding: 0 8px;
+  gap: 5px;
+  color: #a6adc8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.transport-btn.record-btn .record-dot {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #a6adc8;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.transport-btn.record-btn.active {
+  border-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.16);
+  color: #f38ba8;
+}
+
+.transport-btn.record-btn.active .record-dot {
+  border-color: #f38ba8;
+  background: #f38ba8;
+}
+
 .transport-btn.loop-btn.active {
   background: #a6e3a1;
   color: #1e1e2e;
@@ -249,6 +280,15 @@
 
   .bar-counter {
     min-width: 62px;
+  }
+
+  .transport-btn.record-btn {
+    width: 34px;
+    padding: 0;
+  }
+
+  .record-label {
+    display: none;
   }
 }
 

@@ -1,4 +1,6 @@
 .toolbar {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -314,8 +316,8 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
-.tooltip-wrapper:hover::after,
-.tooltip-wrapper:focus-within::after {
+.tooltip-wrapper:has(> :hover)::after,
+.tooltip-wrapper:has(> :focus-visible)::after {
   opacity: 1;
   transition-delay: 0.4s;
 }

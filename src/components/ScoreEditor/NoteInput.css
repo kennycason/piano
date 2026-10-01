@@ -234,10 +234,10 @@
 
 .percussion-keyboard .white-key-label,
 .percussion-keyboard .black-key-label {
-  max-height: 62%;
+  max-height: 78%;
   overflow: hidden;
   color: #52525b;
-  font-size: 6px;
+  font-size: 8px;
   font-weight: 700;
   line-height: 1;
   writing-mode: vertical-rl;
