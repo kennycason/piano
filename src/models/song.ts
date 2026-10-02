@@ -145,6 +145,21 @@ export function pianoKeyToMidi(key: string): number {
     + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0);
 }
 
+/** Map a written staff pitch to the physical piano key that sounds it. */
+export function notationPitchToPianoKey(
+  key: string,
+  accidental?: Accidental | null,
+  keySignature = 'C',
+): string {
+  const [name, octave] = key.split('/');
+  const embeddedAccidental = name.slice(1);
+  const signatureAccidental = getKeySignatureAccidental(keySignature, name);
+  const effectiveAccidental = accidental === 'n'
+    ? ''
+    : accidental ?? (embeddedAccidental || signatureAccidental || '');
+  return midiToPianoKey(pianoKeyToMidi(`${name[0]}${effectiveAccidental}/${octave}`));
+}
+
 export function drumMidiToStaffKey(midi: number): string {
   const positions: Record<number, string> = {
     35: 'f/4', 36: 'f/4',

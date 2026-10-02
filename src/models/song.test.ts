@@ -6,6 +6,7 @@ import {
   getMeasureCapacity,
   getNoteMidiPitches,
   getTieIndexes,
+  notationPitchToPianoKey,
   notesHaveSamePitches,
   type NoteEntry,
 } from './song';
@@ -62,6 +63,15 @@ describe('accidental engraving', () => {
 });
 
 describe('pitch and tie matching', () => {
+  it('maps enharmonic staff spellings to their physical piano keys', () => {
+    expect(notationPitchToPianoKey('e/3', '#')).toBe('f/3');
+    expect(notationPitchToPianoKey('b/3', '#')).toBe('c/4');
+    expect(notationPitchToPianoKey('c/4', 'b')).toBe('b/3');
+    expect(notationPitchToPianoKey('f/4', 'b')).toBe('e/4');
+    expect(notationPitchToPianoKey('f/4', undefined, 'G')).toBe('f#/4');
+    expect(notationPitchToPianoKey('f/4', 'n', 'G')).toBe('f/4');
+  });
+
   it('matches enharmonic chord tones and returns every tied notehead index', () => {
     const first: NoteEntry = {
       id: 'first', keys: ['c/4', 'e/4', 'g/4'], duration: 'q', accidentals: ['#', null, null],

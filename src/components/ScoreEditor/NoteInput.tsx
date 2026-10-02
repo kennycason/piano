@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   GENERAL_MIDI_DRUM_NAMES,
   midiToPianoKey,
-  type Accidental,
+  notationPitchToPianoKey,
   type NoteEntry,
   type TrackKind,
 } from '../../models/song';
@@ -33,6 +33,7 @@ interface NoteInputProps {
   onPreviewNotes: (keys: string[]) => void;
   showAllNoteNames: boolean;
   trackKind: TrackKind;
+  keySignature: string;
   recordingEnabled: boolean;
 }
 
@@ -82,19 +83,13 @@ const SYNTH_CONTROL_DEFINITIONS: ReadonlyArray<{
   { key: 'sustain', label: 'Length' },
 ];
 
-function toPianoKey(key: string, accidental?: Accidental | null): string {
-  const [name, octaveText] = key.split('/');
-  const octave = Number(octaveText);
-  const effectiveAccidental = accidental === 'n' ? '' : accidental ?? name.slice(1);
-  const pitch = name[0];
-  if (effectiveAccidental !== 'b') return `${pitch}${effectiveAccidental}/${octave}`;
-
-  const flatToSharp: Record<string, [string, number]> = {
-    c: ['b', -1], d: ['c#', 0], e: ['d#', 0], f: ['e', 0],
-    g: ['f#', 0], a: ['g#', 0], b: ['a#', 0],
-  };
-  const [pianoPitch, octaveDelta] = flatToSharp[pitch] ?? [pitch, 0];
-  return `${pianoPitch}/${octave + octaveDelta}`;
+function getSelectedPianoKeys(note: NoteEntry | null, keySignature: string): Set<string> {
+  if (!note || note.isRest) return new Set();
+  return new Set(note.drumMidi
+    ? note.drumMidi.map(midiToPianoKey)
+    : note.keys.map((key, index) => (
+        notationPitchToPianoKey(key, note.accidentals?.[index], keySignature)
+      )));
 }
 
 function sortPianoKeys(keys: Iterable<string>): string[] {
@@ -108,6 +103,11 @@ function sortPianoKeys(keys: Iterable<string>): string[] {
       + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0);
   };
   return Array.from(keys).sort((a, b) => midiFor(a) - midiFor(b));
+}
+
+function formatPianoKeyLabel(key: string): string {
+  const [name, octave] = key.split('/');
+  return `${name[0]?.toUpperCase() ?? ''}${name.includes('#') ? '♯' : name.includes('b') ? '♭' : ''}${octave}`;
 }
 
 export const NoteInput: React.FC<NoteInputProps> = ({
@@ -126,31 +126,29 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   onPreviewNotes,
   showAllNoteNames,
   trackKind,
+  keySignature,
   recordingEnabled,
 }) => {
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => (
-    session?.mode === 'edit' && selectedNote && !selectedNote.isRest
-      ? new Set(selectedNote.drumMidi
-          ? selectedNote.drumMidi.map(midiToPianoKey)
-          : selectedNote.keys.map((key, index) => (
-              toPianoKey(key, selectedNote.accidentals?.[index])
-            )))
-      : new Set()
-  ));
-  const [isChordMode, setIsChordMode] = useState(Boolean(session));
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
+    () => getSelectedPianoKeys(selectedNote, keySignature),
+  );
+  const [isChordMode, setIsChordMode] = useState(Boolean(session || (selectedNote && !selectedNote.isRest)));
 
   const playingKeys = new Set(activePlaybackKeys);
   const isPercussion = trackKind === 'percussion';
   const availableInstruments = INSTRUMENT_OPTIONS.filter((option) => (
     isPercussion ? option.value === 'drum-kit' : option.value !== 'drum-kit'
   ));
+  const selectedPitchSummary = selectedKeys.size <= 4
+    ? sortPianoKeys(selectedKeys).map(formatPianoKeyLabel).join(' + ')
+    : `${selectedKeys.size} pitches`;
 
   const toggleKey = (note: string) => {
     const next = new Set(selectedKeys);
     if (next.has(note)) next.delete(note);
     else next.add(note);
 
-    if (session?.mode === 'add' && !onPreviewKeysChange(sortPianoKeys(next))) return;
+    if ((session || (selectedNote && !selectedNote.isRest)) && !onPreviewKeysChange(sortPianoKeys(next))) return;
     setSelectedKeys(next);
     setIsChordMode(true);
   };
@@ -167,7 +165,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
 
   const updateSelected = () => {
     if (selectedKeys.size === 0 || !selectedNote || selectedNote.isRest) return;
-    onUpdateSelectedKeys(sortPianoKeys(selectedKeys));
+    if (session?.mode !== 'edit') onUpdateSelectedKeys(sortPianoKeys(selectedKeys));
     setSelectedKeys(new Set());
     setIsChordMode(false);
     onSessionCommit();
@@ -240,15 +238,17 @@ export const NoteInput: React.FC<NoteInputProps> = ({
           <span className="selection-hint">
             {!recordingEnabled
               ? 'Free Play · Keyboard notes make sound without changing the score.'
+              : selectedNote && !session && !selectedNote.isRest
+                ? `${selectedPitchSummary} selected · Click a piano key to edit this note${selectedKeys.size > 1 ? ' or chord' : ''}.`
               : selectedKeys.size > 0
-              ? `${selectedKeys.size} note${selectedKeys.size > 1 ? 's' : ''} ${session?.mode === 'add' ? 'active in the bar' : 'selected'}${session ? ' · Press Enter to finish' : ''}`
+              ? `${session?.mode === 'edit' ? selectedPitchSummary : `${selectedKeys.size} note${selectedKeys.size > 1 ? 's' : ''}`} ${session?.mode === 'add' ? 'active in the bar' : 'selected'}${session ? ' · Press Enter to finish' : ''}`
               : isChordMode
                 ? session?.mode === 'add'
                   ? 'Click piano keys to add them live. Click an active key to remove it.'
                   : 'Choose the notes that should sound together.'
                 : 'Click a key to add a note. Right-click a bar to add multiple notes.'}
           </span>
-          {selectedKeys.size > 0 && (
+          {selectedKeys.size > 0 && (session || !selectedNote) && (
             <>
               {session?.mode === 'edit' ? (
                 <button type="button" className="update-chord-btn" onClick={updateSelected}>

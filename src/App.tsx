@@ -31,6 +31,7 @@ import {
   getMeasureNoteIds,
   getKeySignatureAccidental,
   notesHaveSamePitches,
+  notationPitchToPianoKey,
   pianoKeyToMidi,
   replaceSongTrackFromScore,
 } from './models/song';
@@ -85,6 +86,7 @@ interface ComposerRequest {
   id: number;
   mode: 'add' | 'edit';
   target?: ScoreTarget;
+  noteId?: string;
 }
 
 type EditorClipboard =
@@ -188,6 +190,45 @@ function normalizePianoKeys(keys: string[], keySignature: string): {
   };
 }
 
+function normalizeEditedPianoKeys(
+  pianoKeys: string[],
+  keySignature: string,
+  originalNote: NoteEntry,
+): { keys: string[]; accidentals?: (Accidental | null)[] } {
+  const originalSpellings = new Map<string, { key: string; accidental: Accidental | null }>();
+  originalNote.keys.forEach((key, index) => {
+    const accidental = originalNote.accidentals?.[index] ?? null;
+    const pianoKey = notationPitchToPianoKey(key, accidental, keySignature);
+    if (!originalSpellings.has(pianoKey)) originalSpellings.set(pianoKey, { key, accidental });
+  });
+
+  const normalized = normalizePianoKeys(pianoKeys, keySignature);
+  const entries = pianoKeys.map((pianoKey, index) => (
+    originalSpellings.get(pianoKey) ?? {
+      key: normalized.keys[index],
+      accidental: normalized.accidentals?.[index] ?? null,
+    }
+  ));
+  const accidentals = entries.map((entry) => entry.accidental);
+  return {
+    keys: entries.map((entry) => entry.key),
+    accidentals: accidentals.some(Boolean) ? accidentals : undefined,
+  };
+}
+
+function formatPitchLabel(key: string, accidental?: Accidental | null): string {
+  const [name, octave] = key.split('/');
+  const effectiveAccidental = accidental === 'n'
+    ? 'n'
+    : accidental ?? (name.includes('#') ? '#' : name.includes('b') ? 'b' : null);
+  const accidentalSymbol = effectiveAccidental === '#'
+    ? '♯'
+    : effectiveAccidental === 'b'
+      ? '♭'
+      : effectiveAccidental === 'n' ? '♮' : '';
+  return `${name[0]?.toUpperCase() ?? ''}${accidentalSymbol}${octave}`;
+}
+
 function createInitialLibrary(): { songs: Song[]; currentSong: Song } {
   const savedSongs = initializeSongLibrary();
   const savedId = getCurrentSongId();
@@ -268,6 +309,7 @@ function App() {
   const composerRequestIdRef = useRef(0);
   const composerBaseSongRef = useRef<Song | null>(null);
   const provisionalNoteIdRef = useRef<string | null>(null);
+  const composerDirtyRef = useRef(false);
   const playbackAnimationRef = useRef<number | null>(null);
   const highlightedNoteIdsRef = useRef<string[]>([]);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -743,8 +785,15 @@ function App() {
         return;
       }
       if (composerRequest) {
-        setEditorMessage('Finish note entry with Enter, or use Cancel before editing the score.');
-        return;
+        const canLeaveCleanEdit = composerRequest.mode === 'edit' && !composerDirtyRef.current;
+        if (!canLeaveCleanEdit) {
+          setEditorMessage('Finish your note changes with Enter, or use Cancel before selecting another note.');
+          return;
+        }
+        composerBaseSongRef.current = null;
+        provisionalNoteIdRef.current = null;
+        composerDirtyRef.current = false;
+        setComposerRequest(null);
       }
       setScoreContextMenu(null);
       const directNoteId = (e.target as Element).closest?.('[data-note-id]')?.getAttribute('data-note-id');
@@ -844,8 +893,15 @@ function App() {
   const handleScoreContextMenu = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (composerRequest) {
-      setEditorMessage('Finish note entry with Enter, or use Cancel before editing the score.');
-      return;
+      const canLeaveCleanEdit = composerRequest.mode === 'edit' && !composerDirtyRef.current;
+      if (!canLeaveCleanEdit) {
+        setEditorMessage('Finish your note changes with Enter, or use Cancel before editing another note.');
+        return;
+      }
+      composerBaseSongRef.current = null;
+      provisionalNoteIdRef.current = null;
+      composerDirtyRef.current = false;
+      setComposerRequest(null);
     }
     const x = Math.min(e.clientX, window.innerWidth - 230);
     const y = Math.min(e.clientY, window.innerHeight - 190);
@@ -876,6 +932,7 @@ function App() {
   const beginAddingNotes = useCallback((target: ScoreTarget) => {
     composerBaseSongRef.current = currentSongRef.current;
     provisionalNoteIdRef.current = null;
+    composerDirtyRef.current = false;
     setSelectedNoteId(null);
     setSelectedBarTarget(target);
     setScoreContextMenu(null);
@@ -905,16 +962,93 @@ function App() {
   }, [updateSong]);
 
   const beginEditingNote = useCallback((noteId: string) => {
-    composerBaseSongRef.current = null;
+    composerBaseSongRef.current = currentSongRef.current;
     provisionalNoteIdRef.current = null;
+    composerDirtyRef.current = false;
     setSelectedNoteId(noteId);
     setSelectedBarTarget(null);
     setScoreContextMenu(null);
-    setComposerRequest({ id: ++composerRequestIdRef.current, mode: 'edit' });
-    setEditorMessage('Edit the selected note or chord with the piano, then press Enter.');
+    setComposerRequest({ id: ++composerRequestIdRef.current, mode: 'edit', noteId });
+    setEditorMessage('Edit the selected note or chord with the piano. Changes appear live; press Enter to finish or Cancel to restore it.');
   }, []);
 
   const previewComposerKeys = useCallback((keys: string[]): boolean => {
+    const editNoteId = composerRequest?.mode === 'edit'
+      ? composerRequest.noteId
+      : !composerRequest ? selectedNoteId ?? undefined : undefined;
+    if (editNoteId) {
+      if (keys.length === 0) {
+        setEditorMessage('A note or chord needs at least one pitch. Use Delete Note to remove it entirely.');
+        return false;
+      }
+
+      const noteId = editNoteId;
+      const song = currentScoreRef.current;
+      let location: NoteLocation | null = null;
+      for (let measureIdx = 0; measureIdx < song.measures.length && !location; measureIdx++) {
+        const measure = song.measures[measureIdx];
+        for (const clef of ['treble', 'bass'] as const) {
+          const voices = getMeasureVoices(measure, clef);
+          for (let voiceIdx = 0; voiceIdx < voices.length; voiceIdx++) {
+            const noteIdx = voices[voiceIdx].findIndex((note) => note.id === noteId);
+            if (noteIdx >= 0) {
+              location = { measureIdx, noteIdx, clef, voiceIdx };
+              break;
+            }
+          }
+          if (location) break;
+        }
+      }
+      if (!location) return false;
+
+      const measure = song.measures[location.measureIdx];
+      const notes = [...getMeasureVoice(measure, location.clef, location.voiceIdx)];
+      const existing = notes[location.noteIdx];
+      if (!existing || existing.isRest) return false;
+
+      if (!composerRequest) {
+        composerBaseSongRef.current = currentSongRef.current;
+        provisionalNoteIdRef.current = null;
+        setComposerRequest({ id: ++composerRequestIdRef.current, mode: 'edit', noteId });
+      }
+
+      const drumMidi = song.kind === 'percussion' ? keys.map(pianoKeyToMidi) : undefined;
+      const baseProject = composerBaseSongRef.current ?? currentSongRef.current;
+      const baseScore = createEditableScore(baseProject, activeTrackId);
+      const originalNote = getMeasureVoice(
+        baseScore.measures[location.measureIdx],
+        location.clef,
+        location.voiceIdx,
+      )[location.noteIdx] ?? existing;
+      const normalized = drumMidi
+        ? null
+        : normalizeEditedPianoKeys(keys, song.keySignature, originalNote);
+      notes[location.noteIdx] = {
+        ...existing,
+        keys: drumMidi?.map(drumMidiToStaffKey) ?? normalized!.keys,
+        accidentals: drumMidi ? undefined : normalized!.accidentals,
+        drumMidi,
+        suppressAccidentals: undefined,
+      };
+
+      const measures = song.measures.map((candidate) => ({ ...candidate }));
+      measures[location.measureIdx] = replaceMeasureVoice(
+        measures[location.measureIdx],
+        location.clef,
+        location.voiceIdx,
+        notes,
+      );
+      const previewScore = { ...song, measures };
+      const previewSong = replaceSongTrackFromScore(currentSongRef.current, previewScore);
+      composerDirtyRef.current = true;
+      currentScoreRef.current = previewScore;
+      currentSongRef.current = previewSong;
+      setCurrentSong(previewSong);
+      setSelectedNoteId(noteId);
+      setEditorMessage('Editing live: click keys to toggle pitches, then press Enter to finish or Cancel to restore the chord.');
+      return true;
+    }
+
     if (composerRequest?.mode !== 'add' || !composerRequest.target) return false;
     const target = composerRequest.target;
     const project = currentSongRef.current;
@@ -939,6 +1073,7 @@ function App() {
       );
       const previewScore = { ...song, measures };
       const previewSong = replaceSongTrackFromScore(project, previewScore);
+      composerDirtyRef.current = true;
       currentScoreRef.current = previewScore;
       currentSongRef.current = previewSong;
       setCurrentSong(previewSong);
@@ -979,6 +1114,7 @@ function App() {
     );
     const previewScore = { ...song, measures };
     const previewSong = replaceSongTrackFromScore(project, previewScore);
+    composerDirtyRef.current = true;
     provisionalNoteIdRef.current = noteId;
     currentScoreRef.current = previewScore;
     currentSongRef.current = previewSong;
@@ -986,47 +1122,53 @@ function App() {
     setSelectedNoteId(noteId);
     setEditorMessage(`Building in bar ${target.measureIdx + 1}: click keys to toggle pitches, then press Enter to finish.`);
     return true;
-  }, [composerRequest, isDotted, selectedDuration]);
+  }, [activeTrackId, composerRequest, isDotted, selectedDuration, selectedNoteId]);
 
   const commitComposerSession = useCallback(() => {
-    if (composerRequest?.mode === 'add') {
+    if (composerRequest) {
       const baseSong = composerBaseSongRef.current;
       const provisionalId = provisionalNoteIdRef.current;
-      if (!baseSong || !provisionalId) return;
-      const committedSong = { ...currentSongRef.current, updatedAt: Date.now() };
-      setSaveStatus('saving');
-      try {
-        saveSong(committedSong);
-      } catch (error) {
-        setSaveStatus('error');
-        setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
-        return;
+      if (!baseSong || (composerRequest.mode === 'add' && !provisionalId)) return;
+      if (currentSongRef.current !== baseSong) {
+        const committedSong = { ...currentSongRef.current, updatedAt: Date.now() };
+        setSaveStatus('saving');
+        try {
+          saveSong(committedSong);
+        } catch (error) {
+          setSaveStatus('error');
+          setEditorMessage(error instanceof Error ? error.message : 'This browser could not save locally.');
+          return;
+        }
+        setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), baseSong]);
+        setRedoStack([]);
+        currentSongRef.current = committedSong;
+        currentScoreRef.current = createEditableScore(committedSong, activeTrackId);
+        setCurrentSong(committedSong);
+        setSongs(loadSongs());
+        setSaveStatus('saved');
       }
-      setUndoStack((stack) => [...stack.slice(-(MAX_HISTORY - 1)), baseSong]);
-      setRedoStack([]);
-      currentSongRef.current = committedSong;
-      setCurrentSong(committedSong);
-      setSongs(loadSongs());
-      setSaveStatus('saved');
     }
     composerBaseSongRef.current = null;
     provisionalNoteIdRef.current = null;
+    composerDirtyRef.current = false;
     setComposerRequest(null);
     setEditorMessage(null);
-  }, [composerRequest]);
+  }, [activeTrackId, composerRequest]);
 
   const cancelComposerSession = useCallback(() => {
-    if (composerRequest?.mode === 'add' && composerBaseSongRef.current) {
+    if (composerRequest && composerBaseSongRef.current) {
       const baseSong = composerBaseSongRef.current;
       currentSongRef.current = baseSong;
+      currentScoreRef.current = createEditableScore(baseSong, activeTrackId);
       setCurrentSong(baseSong);
-      setSelectedNoteId(null);
+      setSelectedNoteId(composerRequest.mode === 'edit' ? composerRequest.noteId ?? null : null);
     }
     composerBaseSongRef.current = null;
     provisionalNoteIdRef.current = null;
+    composerDirtyRef.current = false;
     setComposerRequest(null);
     setEditorMessage(null);
-  }, [composerRequest]);
+  }, [activeTrackId, composerRequest]);
 
   const handleRecordingToggle = useCallback(() => {
     if (recordingEnabled) cancelComposerSession();
@@ -1991,10 +2133,8 @@ function App() {
     : selectedNote?.drumMidi
       ? selectedNote.drumMidi.map((midi) => GENERAL_MIDI_DRUM_NAMES[midi] ?? `Drum ${midi}`).join(', ')
     : selectedNote?.keys.map((key, index) => {
-        const [name, octave] = key.split('/');
-        const accidental = selectedNote.accidentals?.[index];
-        return `${name}${accidental && accidental !== 'n' ? accidental : ''}/${octave}`;
-      }).join(', ');
+        return formatPitchLabel(key, selectedNote.accidentals?.[index]);
+      }).join(' + ');
 
   // Compute beat info for status bar
   const selectedLoc = selectedNoteId ? findNoteLocation(selectedNoteId) : null;
@@ -2009,10 +2149,19 @@ function App() {
     : 0;
   const capacity = getMeasureCapacity(currentSong.timeSignature);
   const composerLabel = composerRequest?.mode === 'edit'
-    ? `Editing ${selectedNote && selectedNote.keys.length > 1 ? 'chord' : 'note'}`
+    ? `Editing ${selectedNote && selectedNote.keys.length > 1 ? 'chord' : 'note'}${selectedNoteLabel ? ` · ${selectedNoteLabel}` : ''}`
     : composerRequest?.target
       ? `Bar ${composerRequest.target.measureIdx + 1} · ${activeScore.voiceLabels?.[composerRequest.target.clef]?.[composerRequest.target.voiceIdx] ?? (composerRequest.target.voiceIdx === 0 ? 'upper voice' : 'lower voice')}`
       : '';
+  const noteInputSelectionKey = selectedNote
+    ? [
+        selectedNote.id,
+        selectedNote.keys.join(','),
+        selectedNote.accidentals?.map((accidental) => accidental ?? '-').join(',') ?? '',
+        selectedNote.drumMidi?.join(',') ?? '',
+        activeScore.keySignature,
+      ].join(':')
+    : 'no-selection';
 
   return (
     <div className="app">
@@ -2152,7 +2301,10 @@ function App() {
                 <>
                   <div className="score-context-title">
                     {selectedNote?.isRest ? 'Rest' : selectedNote && selectedNote.keys.length > 1 ? 'Chord' : 'Note'}
-                    <span>Bar {scoreContextMenu.location.measureIdx + 1}</span>
+                    <span>
+                      {!selectedNote?.isRest && selectedNoteLabel ? `${selectedNoteLabel} · ` : ''}
+                      Bar {scoreContextMenu.location.measureIdx + 1}
+                    </span>
                   </div>
                   {!selectedNote?.isRest && (
                     <button type="button" role="menuitem" onClick={() => beginEditingNote(scoreContextMenu.noteId)}>
@@ -2249,7 +2401,7 @@ function App() {
         </div>
       )}
       <NoteInput
-        key={`${activeTrackId}-${recordingEnabled ? 'record' : 'free'}-${composerRequest ? `composer-${composerRequest.id}` : selectedNote?.id ?? 'no-selection'}`}
+        key={`${activeTrackId}-${recordingEnabled ? 'record' : 'free'}-${composerRequest ? `composer-${composerRequest.id}` : noteInputSelectionKey}`}
         onAddNote={handleAddNote}
         selectedNote={selectedNote}
         session={composerRequest ? { mode: composerRequest.mode, label: composerLabel } : null}
@@ -2264,6 +2416,7 @@ function App() {
         onPreviewNotes={handlePreviewNotes}
         showAllNoteNames={noteNameMode !== 'off'}
         trackKind={activeScore.kind}
+        keySignature={activeScore.keySignature}
         recordingEnabled={recordingEnabled}
         onUpdateSelectedKeys={(keys) => {
           if (activeScore.kind === 'percussion') {
@@ -2277,13 +2430,15 @@ function App() {
             }));
             return;
           }
-          const normalized = normalizePianoKeys(keys, currentSong.keySignature);
-          modifySelectedNote((note) => ({
-            ...note,
-            keys: normalized.keys,
-            accidentals: normalized.accidentals,
-            suppressAccidentals: undefined,
-          }));
+          modifySelectedNote((note) => {
+            const normalized = normalizeEditedPianoKeys(keys, currentSong.keySignature, note);
+            return {
+              ...note,
+              keys: normalized.keys,
+              accidentals: normalized.accidentals,
+              suppressAccidentals: undefined,
+            };
+          });
         }}
       />
     </div>

@@ -14,6 +14,7 @@ import {
   Curve,
   BarlineType,
   Stem,
+  Modifier,
 } from 'vexflow';
 import {
   getMeasureAccidentalDisplay,
@@ -373,7 +374,15 @@ export function renderSong(
           if (note.dotted) Dot.buildAndAttach([staveNote]);
           note.articulations?.forEach((articulation) => {
             const vexArticulation = articulationMap[articulation];
-            if (vexArticulation) staveNote.addModifier(new Articulation(vexArticulation));
+            if (vexArticulation) {
+              staveNote.addModifier(
+                new Articulation(vexArticulation).setPosition(
+                  staveNote.getStemDirection() === Stem.DOWN
+                    ? Modifier.Position.BELOW
+                    : Modifier.Position.ABOVE,
+                ),
+              );
+            }
           });
           if (note.dynamic) {
             staveNote.addModifier(

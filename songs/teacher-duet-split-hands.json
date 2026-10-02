@@ -30,13 +30,13 @@
       "treble": [
         { "id": "split-m2-rh-1", "keys": ["b/4"], "duration": "q", "isRest": true },
         { "id": "split-m2-rh-2", "keys": ["d/3", "f/3"], "duration": "8", "accidentals": ["#", "#"], "slurToNoteId": "split-m2-rh-3", "slurPlacement": "above" },
-        { "id": "split-m2-rh-3", "keys": ["e/3", "g/3"], "duration": "8", "accidentals": [null, "#"] },
+        { "id": "split-m2-rh-3", "keys": ["e/3", "g/3"], "duration": "8" },
         { "id": "split-m2-rh-4", "keys": ["b/4"], "duration": "8", "isRest": true },
         { "id": "split-m2-rh-5", "keys": ["d#/3", "f#/3"], "duration": "8", "suppressAccidentals": true, "slurToNoteId": "split-m2-rh-6", "slurPlacement": "above" },
-        { "id": "split-m2-rh-6", "keys": ["e/3", "g#/3"], "duration": "q", "suppressAccidentals": true }
+        { "id": "split-m2-rh-6", "keys": ["e/3", "g/3"], "duration": "q", "suppressAccidentals": true }
       ],
       "bass": [
-        { "id": "split-m2-lh-1", "keys": ["g/2"], "duration": "q" },
+        { "id": "split-m2-lh-1", "keys": ["c/3"], "duration": "q" },
         { "id": "split-m2-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
         { "id": "split-m2-lh-3", "keys": ["d/3"], "duration": "h", "isRest": true }
       ]
@@ -55,14 +55,14 @@
     {
       "treble": [
         { "id": "split-m4-rh-1", "keys": ["b/4"], "duration": "q", "isRest": true },
-        { "id": "split-m4-rh-2", "keys": ["d/3", "f/3"], "duration": "8", "accidentals": ["#", "#"], "slurToNoteId": "split-m4-rh-3", "slurPlacement": "above" },
-        { "id": "split-m4-rh-3", "keys": ["e/3", "g/3"], "duration": "8", "accidentals": [null, "#"] },
+        { "id": "split-m4-rh-2", "keys": ["c/3", "e/3"], "duration": "8", "accidentals": ["#", null], "slurToNoteId": "split-m4-rh-3", "slurPlacement": "above" },
+        { "id": "split-m4-rh-3", "keys": ["d/3", "f/3"], "duration": "8" },
         { "id": "split-m4-rh-4", "keys": ["b/4"], "duration": "8", "isRest": true },
-        { "id": "split-m4-rh-5", "keys": ["d#/3", "f#/3"], "duration": "8", "suppressAccidentals": true, "slurToNoteId": "split-m4-rh-6", "slurPlacement": "above" },
-        { "id": "split-m4-rh-6", "keys": ["e/3", "g#/3"], "duration": "q", "suppressAccidentals": true }
+        { "id": "split-m4-rh-5", "keys": ["c#/3", "e#/3"], "duration": "8", "suppressAccidentals": true, "slurToNoteId": "split-m4-rh-6", "slurPlacement": "above" },
+        { "id": "split-m4-rh-6", "keys": ["d/3", "f#/3"], "duration": "q", "suppressAccidentals": true }
       ],
       "bass": [
-        { "id": "split-m4-lh-1", "keys": ["g/2"], "duration": "q" },
+        { "id": "split-m4-lh-1", "keys": ["b/2"], "duration": "q" },
         { "id": "split-m4-lh-2", "keys": ["d/3"], "duration": "q", "isRest": true },
         { "id": "split-m4-lh-3", "keys": ["d/3"], "duration": "h", "isRest": true }
       ]
@@ -84,7 +84,7 @@
     {
       "treble": [
         { "id": "split-m6-rh-1", "keys": ["b/4"], "duration": "q", "isRest": true },
-        { "id": "split-m6-rh-2", "keys": ["d/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "split-m6-rh-2", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] },
         { "id": "split-m6-rh-3", "keys": ["b/4"], "duration": "h", "isRest": true }
       ],
       "bass": [
@@ -100,8 +100,8 @@
         { "id": "split-m7-rh-2", "keys": ["d/3"], "duration": "8", "accidentals": ["#"], "slurToNoteId": "split-m7-rh-4", "slurPlacement": "above" },
         { "id": "split-m7-rh-3", "keys": ["e/3"], "duration": "8" },
         { "id": "split-m7-rh-4", "keys": ["g/3"], "duration": "8" },
-        { "id": "split-m7-rh-5", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] },
-        { "id": "split-m7-rh-6", "keys": ["e/3"], "duration": "q", "articulations": ["staccato"] }
+        { "id": "split-m7-rh-5", "keys": ["f/3"], "duration": "q", "articulations": ["staccato"] },
+        { "id": "split-m7-rh-6", "keys": ["f/3"], "duration": "q", "articulations": ["staccato"] }
       ],
       "bass": [
         { "id": "split-m7-lh-1", "keys": ["g/2"], "duration": "q", "articulations": ["staccato"] },
@@ -123,5 +123,5 @@
     }
   ],
   "createdAt": 1790713298000,
-  "updatedAt": 1790713298000
+  "updatedAt": 1790908837178
 }
