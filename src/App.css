@@ -28,6 +28,77 @@
   scrollbar-gutter: stable;
 }
 
+.app.focus-mode .playback-bar,
+.app.focus-mode .toolbar,
+.app.focus-mode .song-manager,
+.app.focus-mode .status-bar,
+.app.focus-mode .note-input-header {
+  display: none;
+}
+
+.app.focus-mode .score-container {
+  padding: 28px 16px 12px;
+  background: #11111b;
+}
+
+.app.focus-mode .piano-keys-area {
+  height: clamp(84px, 11vh, 108px);
+}
+
+.focus-dock {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 6px 8px;
+  border: 1px solid #45475a;
+  border-radius: 999px;
+  background: rgba(24, 24, 37, 0.92);
+  color: #cdd6f4;
+  box-shadow: 0 8px 24px rgba(17, 17, 27, 0.35);
+}
+
+.focus-dock-title {
+  max-width: 220px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-dock-bar {
+  color: #a6adc8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.focus-dock button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #45475a;
+  border-radius: 999px;
+  background: #313244;
+  color: #cdd6f4;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.focus-dock button:hover {
+  background: #45475a;
+}
+
+.focus-dock button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .score-container svg {
   display: block;
   margin: 0 auto;

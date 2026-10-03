@@ -1,0 +1,1832 @@
+{
+  "schemaVersion": 2,
+  "id": "tu-falta-de-querer",
+  "title": "Tu Falta de Querer",
+  "tempo": 72,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "keySignature": "Bb",
+  "tracks": [
+    {
+      "id": "tu-falta-de-querer-piano",
+      "name": "Piano",
+      "kind": "pitched",
+      "instrumentSound": "grand-piano",
+      "synthControls": {
+        "volume": 0.82,
+        "tone": 0.72,
+        "echo": 0.08,
+        "sustain": 0.55
+      },
+      "staffLayout": "grand",
+      "staffClefs": {
+        "treble": "treble",
+        "bass": "bass"
+      },
+      "voiceLabels": {
+        "treble": [
+          "Melody"
+        ],
+        "bass": [
+          "L.H."
+        ]
+      },
+      "measures": [
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m01-rh-1",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ],
+              "dynamic": "mf"
+            },
+            {
+              "id": "tfdq-m01-rh-2",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m01-rh-3",
+              "keys": [
+                "f/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m01-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m01-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ],
+              "dynamic": "mf"
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m02-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m02-rh-2",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m02-rh-3",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m02-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m02-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "G",
+          "treble": [
+            {
+              "id": "tfdq-m03-rh-1",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m03-rh-2",
+              "keys": [
+                "b/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ],
+              "accidentals": [
+                "n"
+              ]
+            },
+            {
+              "id": "tfdq-m03-rh-3",
+              "keys": [
+                "g/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m03-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m03-lh-1",
+              "keys": [
+                "g/2",
+                "b/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ],
+              "accidentals": [
+                null,
+                "n",
+                null
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "G",
+          "treble": [
+            {
+              "id": "tfdq-m04-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m04-rh-2",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m04-rh-3",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m04-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m04-lh-1",
+              "keys": [
+                "g/2",
+                "b/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ],
+              "accidentals": [
+                null,
+                "n",
+                null
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Eb",
+          "treble": [
+            {
+              "id": "tfdq-m05-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m05-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m05-rh-3",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m05-lh-1",
+              "keys": [
+                "g/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Ebm",
+          "treble": [
+            {
+              "id": "tfdq-m06-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m06-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m06-rh-3",
+              "keys": [
+                "f#/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m06-rh-4",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m06-lh-1",
+              "keys": [
+                "gb/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Cm",
+          "treble": [
+            {
+              "id": "tfdq-m07-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m07-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m07-rh-3",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m07-lh-1",
+              "keys": [
+                "g/2",
+                "c/3",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                2,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "F",
+          "treble": [
+            {
+              "id": "tfdq-m08-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m08-rh-2",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m08-lh-1",
+              "keys": [
+                "f/2",
+                "a/2",
+                "c/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m09-rh-1",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m09-rh-2",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m09-rh-3",
+              "keys": [
+                "f/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m09-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m09-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m10-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m10-rh-2",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m10-rh-3",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m10-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m10-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "G",
+          "treble": [
+            {
+              "id": "tfdq-m11-rh-1",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m11-rh-2",
+              "keys": [
+                "b/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ],
+              "accidentals": [
+                "n"
+              ]
+            },
+            {
+              "id": "tfdq-m11-rh-3",
+              "keys": [
+                "g/3"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m11-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m11-lh-1",
+              "keys": [
+                "g/2",
+                "b/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ],
+              "accidentals": [
+                null,
+                "n",
+                null
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "G",
+          "treble": [
+            {
+              "id": "tfdq-m12-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m12-rh-2",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m12-rh-3",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m12-rh-4",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m12-lh-1",
+              "keys": [
+                "g/2",
+                "b/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ],
+              "accidentals": [
+                null,
+                "n",
+                null
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Eb",
+          "treble": [
+            {
+              "id": "tfdq-m13-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m13-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m13-rh-3",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m13-lh-1",
+              "keys": [
+                "g/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Ebm",
+          "treble": [
+            {
+              "id": "tfdq-m14-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m14-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m14-rh-3",
+              "keys": [
+                "f#/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m14-rh-4",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m14-lh-1",
+              "keys": [
+                "gb/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Cm",
+          "treble": [
+            {
+              "id": "tfdq-m15-rh-1",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m15-rh-2",
+              "keys": [
+                "eb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m15-rh-3",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m15-lh-1",
+              "keys": [
+                "g/2",
+                "c/3",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                2,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "F",
+          "treble": [
+            {
+              "id": "tfdq-m16-rh-1",
+              "keys": [
+                "c/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m16-rh-2",
+              "keys": [
+                "bb/3"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m16-lh-1",
+              "keys": [
+                "f/2",
+                "a/2",
+                "c/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m17-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m17-rh-2",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m17-rh-3",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m17-rh-4",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m17-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m18-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m18-rh-2",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m18-rh-3",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m18-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "D",
+          "treble": [
+            {
+              "id": "tfdq-m19-rh-1",
+              "keys": [
+                "a/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m19-rh-2",
+              "keys": [
+                "f#/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m19-rh-3",
+              "keys": [
+                "d/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m19-rh-4",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                5
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m19-lh-1",
+              "keys": [
+                "f#/2",
+                "a/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "D",
+          "treble": [
+            {
+              "id": "tfdq-m20-rh-1",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m20-rh-2",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m20-rh-3",
+              "keys": [
+                "a/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m20-lh-1",
+              "keys": [
+                "f#/2",
+                "a/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Eb",
+          "treble": [
+            {
+              "id": "tfdq-m21-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m21-rh-2",
+              "keys": [
+                "a/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m21-rh-3",
+              "keys": [
+                "g/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m21-rh-4",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m21-lh-1",
+              "keys": [
+                "g/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Eb",
+          "treble": [
+            {
+              "id": "tfdq-m22-rh-1",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m22-rh-2",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m22-rh-3",
+              "keys": [
+                "g/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m22-lh-1",
+              "keys": [
+                "g/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Ebm",
+          "treble": [
+            {
+              "id": "tfdq-m23-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m23-rh-2",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m23-rh-3",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m23-rh-4",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m23-lh-1",
+              "keys": [
+                "gb/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "F",
+          "treble": [
+            {
+              "id": "tfdq-m24-rh-1",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m24-rh-2",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m24-rh-3",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "h",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m24-lh-1",
+              "keys": [
+                "f/2",
+                "a/2",
+                "c/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m25-rh-1",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m25-rh-2",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m25-rh-3",
+              "keys": [
+                "eb/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m25-rh-4",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m25-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m26-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m26-rh-2",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m26-rh-3",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m26-rh-4",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m26-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "D",
+          "treble": [
+            {
+              "id": "tfdq-m27-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m27-rh-2",
+              "keys": [
+                "f#/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            },
+            {
+              "id": "tfdq-m27-rh-3",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                5
+              ]
+            },
+            {
+              "id": "tfdq-m27-rh-4",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m27-lh-1",
+              "keys": [
+                "f#/2",
+                "a/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "D",
+          "treble": [
+            {
+              "id": "tfdq-m28-rh-1",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m28-rh-2",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                5
+              ]
+            },
+            {
+              "id": "tfdq-m28-rh-3",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m28-rh-4",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m28-lh-1",
+              "keys": [
+                "f#/2",
+                "a/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Eb",
+          "treble": [
+            {
+              "id": "tfdq-m29-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m29-rh-2",
+              "keys": [
+                "f/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                1
+              ]
+            },
+            {
+              "id": "tfdq-m29-rh-3",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "h",
+              "fingers": [
+                5
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m29-lh-1",
+              "keys": [
+                "g/2",
+                "bb/2",
+                "eb/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "F",
+          "treble": [
+            {
+              "id": "tfdq-m30-rh-1",
+              "keys": [
+                "d/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                5
+              ]
+            },
+            {
+              "id": "tfdq-m30-rh-2",
+              "keys": [
+                "c/5"
+              ],
+              "duration": "q",
+              "fingers": [
+                4
+              ]
+            },
+            {
+              "id": "tfdq-m30-rh-3",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                3
+              ]
+            },
+            {
+              "id": "tfdq-m30-rh-4",
+              "keys": [
+                "a/4"
+              ],
+              "duration": "q",
+              "fingers": [
+                2
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m30-lh-1",
+              "keys": [
+                "f/2",
+                "a/2",
+                "c/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m31-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "w",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m31-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "chordSymbol": "Bb",
+          "treble": [
+            {
+              "id": "tfdq-m32-rh-1",
+              "keys": [
+                "bb/4"
+              ],
+              "duration": "w",
+              "fingers": [
+                1
+              ]
+            }
+          ],
+          "bass": [
+            {
+              "id": "tfdq-m32-lh-1",
+              "keys": [
+                "f/2",
+                "bb/2",
+                "d/3"
+              ],
+              "duration": "w",
+              "fingers": [
+                5,
+                3,
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "createdAt": 1791000000000,
+  "updatedAt": 1791000000000
+}

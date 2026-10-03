@@ -70,6 +70,8 @@ export interface NoteEntry {
   pedalEnd?: boolean;
   /** General MIDI percussion pitches corresponding to `keys` on a percussion staff. */
   drumMidi?: number[];
+  /** Piano finger numbers, 1 = thumb through 5 = pinky, aligned with `keys`. */
+  fingers?: (number | null)[];
 }
 
 export interface Measure {
@@ -81,6 +83,8 @@ export interface Measure {
   additionalBassVoices?: NoteEntry[][];
   repeatStart?: boolean;
   repeatEnd?: boolean;
+  /** Chord name printed above the staff, for example "Bb" or "Ebm". */
+  chordSymbol?: string;
 }
 
 export interface TrackMidiMetadata {
@@ -140,9 +144,10 @@ export function pianoKeyToMidi(key: string): number {
   const pitchClasses: Record<string, number> = {
     c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
   };
+  const accidental = name.slice(1);
   return (Number(octaveText) + 1) * 12
     + (pitchClasses[name[0]] ?? 0)
-    + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0);
+    + (accidental.includes('#') ? 1 : accidental.includes('b') ? -1 : 0);
 }
 
 /** Map a written staff pitch to the physical piano key that sounds it. */
@@ -286,6 +291,26 @@ export function getMeasureVoice(
   voiceIdx = 0,
 ): NoteEntry[] {
   return getMeasureVoices(measure, clef)[voiceIdx] ?? [];
+}
+
+/** Physical piano keys sounded by every note in a bar, spelled the way the keyboard is built. */
+export function measurePianoKeys(measure: Measure, keySignature: string): string[] {
+  const keys = new Set<string>();
+  for (const clef of ['treble', 'bass'] as const) {
+    for (const voice of getMeasureVoices(measure, clef)) {
+      for (const note of voice) {
+        if (note.isRest || note.isSpacer) continue;
+        if (note.drumMidi?.length) {
+          note.drumMidi.forEach((midi) => keys.add(midiToPianoKey(midi)));
+          continue;
+        }
+        note.keys.forEach((key, index) => {
+          keys.add(notationPitchToPianoKey(key, note.accidentals?.[index], keySignature));
+        });
+      }
+    }
+  }
+  return [...keys];
 }
 
 export function replaceMeasureVoice(

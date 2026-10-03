@@ -17,11 +17,12 @@ import pixelParade from '../../songs/pixel-parade.json';
 import teacherDuetSingleBassStaff from '../../songs/teacher-duet-single-bass-staff.json';
 import moonlightSonata from '../../songs/moonlight-sonata.json';
 import lowerNorfair from '../../songs/lower-norfair.json';
+import tuFaltaDeQuerer from '../../songs/tu-falta-de-querer.json';
 
 const STORAGE_KEY = 'piano_sheet_songs';
 const CURRENT_SONG_KEY = 'piano_sheet_current';
 const SAMPLE_LIBRARY_VERSION_KEY = 'piano_sheet_sample_library_version';
-const SAMPLE_LIBRARY_VERSION = '4';
+const SAMPLE_LIBRARY_VERSION = '5';
 export const DEFAULT_STARTER_SONG_ID = 'fixture-alouette-beginner';
 const NOTE_DURATIONS = new Set(['w', 'h', 'q', '8', '16']);
 const ACCIDENTALS = new Set(['#', 'b', 'n']);
@@ -35,6 +36,7 @@ const INSTRUMENT_SOUNDS = new Set([
   'guitar', 'bass', 'organ', 'drum-kit',
 ]);
 const BUNDLED_SAMPLE_CANDIDATES: unknown[] = [
+  tuFaltaDeQuerer,
   lowerNorfair,
   moonlightSonata,
   alouetteBeginner,
@@ -71,6 +73,7 @@ function isNoteEntry(value: unknown): boolean {
     pedalEnd?: unknown;
     restOffset?: unknown;
     drumMidi?: unknown;
+    fingers?: unknown;
   };
   return (
     typeof note.id === 'string' && note.id.length > 0 && note.id.length <= 200 &&
@@ -122,6 +125,15 @@ function isNoteEntry(value: unknown): boolean {
         note.drumMidi.length === note.keys.length &&
         note.drumMidi.every((midi) => Number.isInteger(midi) && midi >= 0 && midi <= 127)
       )
+    ) &&
+    (
+      note.fingers === undefined || (
+        Array.isArray(note.fingers) &&
+        note.fingers.length === note.keys.length &&
+        note.fingers.every((finger) => finger === null || (
+          typeof finger === 'number' && Number.isInteger(finger) && finger >= 1 && finger <= 5
+        ))
+      )
     )
   );
 }
@@ -135,6 +147,7 @@ function isMeasure(value: unknown): value is Measure {
     additionalBassVoices?: unknown;
     repeatStart?: unknown;
     repeatEnd?: unknown;
+    chordSymbol?: unknown;
   };
   const voicesAreValid = (voices: unknown) => (
     voices === undefined || (
@@ -148,7 +161,14 @@ function isMeasure(value: unknown): value is Measure {
     voicesAreValid(candidate.additionalTrebleVoices) &&
     voicesAreValid(candidate.additionalBassVoices) &&
     isOptionalBoolean(candidate.repeatStart) &&
-    isOptionalBoolean(candidate.repeatEnd)
+    isOptionalBoolean(candidate.repeatEnd) &&
+    (
+      candidate.chordSymbol === undefined || (
+        typeof candidate.chordSymbol === 'string' &&
+        candidate.chordSymbol.length > 0 &&
+        candidate.chordSymbol.length <= 16
+      )
+    )
   );
 }
 

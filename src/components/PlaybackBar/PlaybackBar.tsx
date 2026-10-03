@@ -21,6 +21,7 @@ interface PlaybackBarProps {
   onTrackChange: (trackId: string) => void;
   onSoloActiveTrackToggle: () => void;
   onActiveTrackMuteToggle: () => void;
+  onEnterFocus: () => void;
 }
 
 export const PlaybackBar: React.FC<PlaybackBarProps> = ({
@@ -43,6 +44,7 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
   onTrackChange,
   onSoloActiveTrackToggle,
   onActiveTrackMuteToggle,
+  onEnterFocus,
 }) => {
   const activeTrackIndex = Math.max(0, tracks.findIndex((track) => track.id === activeTrackId));
   const activeTrack = tracks[activeTrackIndex] ?? tracks[0];
@@ -130,6 +132,14 @@ export const PlaybackBar: React.FC<PlaybackBarProps> = ({
         </div>
       </div>
       <div className="playback-right">
+        <button
+          type="button"
+          className="track-mode-btn focus-enter-btn"
+          onClick={onEnterFocus}
+          title="Hide the panels and fill the screen"
+        >
+          Focus
+        </button>
         <div className="track-navigation" aria-label="MIDI and score tracks">
           <label className="track-select-label">
             <span className="track-kind-icon" aria-hidden="true">

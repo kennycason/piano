@@ -29,6 +29,8 @@ import {
   replaceMeasureVoice,
   mapMeasureNotes,
   getMeasureNoteIds,
+  getNoteMidiPitches,
+  measurePianoKeys,
   getKeySignatureAccidental,
   notesHaveSamePitches,
   notationPitchToPianoKey,
@@ -179,8 +181,9 @@ function normalizePianoKeys(keys: string[], keySignature: string): {
   });
   const accidentals = keys.map((key): Accidental | null => {
     const name = key.split('/')[0];
-    if (name.includes('#')) return '#';
-    if (name.includes('b')) return 'b';
+    const accidental = name.slice(1);
+    if (accidental.includes('#')) return '#';
+    if (accidental.includes('b')) return 'b';
     if (getKeySignatureAccidental(keySignature, name)) return 'n';
     return null;
   });
@@ -218,9 +221,10 @@ function normalizeEditedPianoKeys(
 
 function formatPitchLabel(key: string, accidental?: Accidental | null): string {
   const [name, octave] = key.split('/');
+  const writtenAccidental = name.slice(1);
   const effectiveAccidental = accidental === 'n'
     ? 'n'
-    : accidental ?? (name.includes('#') ? '#' : name.includes('b') ? 'b' : null);
+    : accidental ?? (writtenAccidental.includes('#') ? '#' : writtenAccidental.includes('b') ? 'b' : null);
   const accidentalSymbol = effectiveAccidental === '#'
     ? '♯'
     : effectiveAccidental === 'b'
@@ -249,6 +253,39 @@ function getInitialNoteNameMode(): NoteNameMode {
   } catch {
     return 'off';
   }
+}
+
+function isBlackMidi(midi: number): boolean {
+  return [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
+}
+
+/** Short practice keyboard around the sounding notes, snapped out to C. */
+function keyboardRangeForMidis(
+  midis: number[],
+  percussion = false,
+): { start: number; end: number } {
+  const snapDown = (midi: number) => {
+    let value = Math.max(21, Math.min(108, midi));
+    while (isBlackMidi(value) && value > 21) value -= 1;
+    return value;
+  };
+  const snapUp = (midi: number) => {
+    let value = Math.max(21, Math.min(108, midi));
+    while (isBlackMidi(value) && value < 108) value += 1;
+    return value;
+  };
+  if (midis.length === 0) return { start: 48, end: 84 };
+  let start = Math.min(...midis) - 3;
+  let end = Math.max(...midis) + 3;
+  start -= ((start % 12) + 12) % 12;
+  if (((end % 12) + 12) % 12 !== 0) end += 12 - (((end % 12) + 12) % 12);
+  const spanCap = percussion ? 72 : 48;
+  if (end - start > spanCap) end = start + spanCap;
+  if (end - start < 24) end = start + 24;
+  start = snapDown(start);
+  end = snapUp(end);
+  if (end <= start) end = Math.min(108, start + 24);
+  return { start, end };
 }
 
 function App() {
@@ -281,8 +318,30 @@ function App() {
   const [scoreContextMenu, setScoreContextMenu] = useState<ScoreContextMenu | null>(null);
   const [composerRequest, setComposerRequest] = useState<ComposerRequest | null>(null);
   const [isDraggingNote, setIsDraggingNote] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const shownPlaybackKeys = useMemo(() => {
+    if (playState !== 'playing' && playState !== 'paused') return [];
+    const measure = activeScore.measures[currentPlayMeasure];
+    return measure ? measurePianoKeys(measure, activeScore.keySignature) : [];
+  }, [activeScore, currentPlayMeasure, playState]);
+  const focusKeyboardRange = useMemo(() => {
+    if (!focusMode) return null;
+    const midis: number[] = [];
+    for (const measure of activeScore.measures) {
+      for (const clef of ['treble', 'bass'] as const) {
+        for (const voice of getMeasureVoices(measure, clef)) {
+          for (const note of voice) {
+            if (note.isRest || note.isSpacer) continue;
+            if (note.drumMidi?.length) midis.push(...note.drumMidi);
+            else midis.push(...getNoteMidiPitches(note, activeScore.keySignature));
+          }
+        }
+      }
+    }
+    return keyboardRangeForMidis(midis, activeScore.kind === 'percussion');
+  }, [activeScore, focusMode]);
   const [highlightedNoteIds, setHighlightedNoteIds] = useState<string[]>([]);
-  const [activePlaybackKeys, setActivePlaybackKeys] = useState<string[]>([]);
+
   const [editorClipboard, setEditorClipboard] = useState<EditorClipboard | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [pendingDeleteSongId, setPendingDeleteSongId] = useState<string | null>(null);
@@ -319,8 +378,7 @@ function App() {
     playbackEngine.stop();
     setPlayState('stopped');
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-    setCurrentPlayMeasure(0);
+        setCurrentPlayMeasure(0);
   }, []);
 
   useEffect(() => {
@@ -1496,17 +1554,14 @@ function App() {
     setPlayState('loading');
     setCurrentPlayMeasure(0);
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-    playbackEngine.onNotes((measureIdx, noteIds) => {
+        playbackEngine.onNotes((measureIdx, noteIds) => {
       setHighlightedNoteIds(noteIds);
       setCurrentPlayMeasure(measureIdx);
     });
-    playbackEngine.onActiveKeys(setActivePlaybackKeys);
     playbackEngine.onStopped(() => {
       setPlayState('stopped');
       setHighlightedNoteIds([]);
-      setActivePlaybackKeys([]);
-      setCurrentPlayMeasure(0);
+            setCurrentPlayMeasure(0);
     });
     try {
       await playbackEngine.play(currentSong, activeTrackId, 0, loopEnabled, soloActiveTrack);
@@ -1520,8 +1575,7 @@ function App() {
       playbackEngine.stop();
       setPlayState('stopped');
       setHighlightedNoteIds([]);
-      setActivePlaybackKeys([]);
-      setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
+            setEditorMessage('That sound could not be prepared. Try another sound or check your connection.');
     }
   }, [activeTrackId, currentSong, loopEnabled, playState, soloActiveTrack]);
 
@@ -1534,16 +1588,14 @@ function App() {
     playbackEngine.stop();
     setPlayState('stopped');
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-    setCurrentPlayMeasure(0);
+        setCurrentPlayMeasure(0);
   }, []);
 
   const handleTrackChange = useCallback((trackId: string) => {
     if (!currentSong.tracks.some((track) => track.id === trackId) || trackId === activeTrackId) return;
     playbackEngine.setActiveTrack(trackId);
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-    setActiveTrackId(trackId);
+        setActiveTrackId(trackId);
     setSelectedNoteId(null);
     setSelectedBarTarget(null);
     setScoreContextMenu(null);
@@ -1573,8 +1625,7 @@ function App() {
     setCurrentSong(nextSong);
     setSongs(loadSongs());
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-    setSaveStatus('saved');
+        setSaveStatus('saved');
   }, [activeScore, activeTrackId, currentSong]);
 
   const handleSoloActiveTrackToggle = useCallback(() => {
@@ -1584,8 +1635,7 @@ function App() {
       return next;
     });
     setHighlightedNoteIds([]);
-    setActivePlaybackKeys([]);
-  }, []);
+      }, []);
 
   const handleInstrumentSoundChange = useCallback((sound: InstrumentSound) => {
     if (sound === activeScore.instrumentSound) return;
@@ -1677,6 +1727,29 @@ function App() {
 
   useEffect(() => () => playbackEngine.stop(), []);
 
+  const exitFocusMode = useCallback(() => {
+    setFocusMode(false);
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  const enterFocusMode = useCallback(() => {
+    setFocusMode(true);
+    const root = document.documentElement;
+    if (!document.fullscreenElement && typeof root.requestFullscreen === 'function') {
+      void root.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setFocusMode(false);
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1713,6 +1786,11 @@ function App() {
 
       switch (e.key) {
         case 'Escape':
+          if (focusMode) {
+            e.preventDefault();
+            exitFocusMode();
+            break;
+          }
           setSlurToolActive(false);
           setPendingSlurStartId(null);
           setScoreContextMenu(null);
@@ -1746,7 +1824,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, handleCopy, handlePaste, handleTie, composerRequest, cancelComposerSession]);
+  }, [modifySelectedNote, selectedNoteId, handleDeleteNote, navigateNote, transposeSelectedNote, playState, handlePlay, handlePause, handleStop, handleUndo, handleRedo, handleCopy, handlePaste, handleTie, composerRequest, cancelComposerSession, focusMode, exitFocusMode]);
 
   // Add note with beat validation
   const handleAddNote = (keys: string[], clef: 'treble' | 'bass') => {
@@ -2164,7 +2242,7 @@ function App() {
     : 'no-selection';
 
   return (
-    <div className="app">
+    <div className={`app${focusMode ? ' focus-mode' : ''}`}>
       <PlaybackBar
         songId={currentSong.id}
         playState={playState}
@@ -2185,6 +2263,7 @@ function App() {
         onTrackChange={handleTrackChange}
         onSoloActiveTrackToggle={handleSoloActiveTrackToggle}
         onActiveTrackMuteToggle={handleActiveTrackMuteToggle}
+        onEnterFocus={enterFocusMode}
       />
       <Toolbar
         selectedDuration={selectedDuration}
@@ -2400,6 +2479,33 @@ function App() {
           </div>
         </div>
       )}
+      {focusMode && (
+        <div className="focus-dock" role="toolbar" aria-label="Focus controls">
+          <span className="focus-dock-title">{currentSong.title || 'Untitled'}</span>
+          <span className="focus-dock-bar">
+            {playState === 'loading' ? 'Loading…' : `Bar ${currentPlayMeasure + 1}/${activeScore.measures.length}`}
+          </span>
+          <button
+            type="button"
+            onClick={playState === 'playing' ? handlePause : handlePlay}
+            disabled={playState === 'loading'}
+            aria-label={playState === 'playing' ? 'Pause' : 'Play'}
+          >
+            {playState === 'playing' ? 'Pause' : 'Play'}
+          </button>
+          <button
+            type="button"
+            onClick={handleStop}
+            disabled={playState === 'stopped'}
+            aria-label="Stop"
+          >
+            Stop
+          </button>
+          <button type="button" onClick={exitFocusMode}>
+            Exit
+          </button>
+        </div>
+      )}
       <NoteInput
         key={`${activeTrackId}-${recordingEnabled ? 'record' : 'free'}-${composerRequest ? `composer-${composerRequest.id}` : noteInputSelectionKey}`}
         onAddNote={handleAddNote}
@@ -2408,7 +2514,7 @@ function App() {
         onPreviewKeysChange={previewComposerKeys}
         onSessionCommit={commitComposerSession}
         onSessionCancel={cancelComposerSession}
-        activePlaybackKeys={activePlaybackKeys}
+        activePlaybackKeys={shownPlaybackKeys}
         instrumentSound={instrumentSound}
         synthControls={synthControls}
         onInstrumentSoundChange={handleInstrumentSoundChange}
@@ -2418,6 +2524,7 @@ function App() {
         trackKind={activeScore.kind}
         keySignature={activeScore.keySignature}
         recordingEnabled={recordingEnabled}
+        midiRange={focusKeyboardRange}
         onUpdateSelectedKeys={(keys) => {
           if (activeScore.kind === 'percussion') {
             const drumMidi = keys.map(pianoKeyToMidi);
