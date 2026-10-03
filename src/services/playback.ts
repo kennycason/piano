@@ -816,7 +816,6 @@ export class PlaybackEngine {
     this.state = 'paused';
     this.tone.getTransport().pause();
     this.activeOutputs.forEach((output) => output.releaseAll());
-    this.onActiveKeysCallback?.([]);
   }
 
   resume() {

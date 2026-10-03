@@ -173,6 +173,14 @@
   padding: 0 0 8px;
 }
 
+.piano-keyboard-compact .piano-keys-area {
+  min-width: 0;
+}
+
+.piano-keyboard-compact .piano-black-key {
+  width: max(14px, calc(100% / var(--white-key-count) * 0.58));
+}
+
 .piano-keys-area {
   position: relative;
   width: 100%;
@@ -201,7 +209,7 @@
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 3px;
-  transition: background 0.08s;
+  transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
 }
 
 .piano-white-key:hover {
@@ -217,10 +225,28 @@
   border-color: #7aa8f0;
 }
 
-.piano-white-key.playing {
-  background: linear-gradient(180deg, #e8e8e8 0%, #f7a8bc 100%);
-  border-color: #f38ba8;
-  box-shadow: inset 0 -8px 18px rgba(220, 38, 38, 0.24);
+.piano-white-key.playing,
+.piano-white-key.playing:hover {
+  background: #fda4af;
+  border-color: #e11d48;
+  box-shadow: inset 0 0 0 2px #e11d48;
+}
+
+.piano-white-key.fading {
+  animation: piano-white-key-fade 0.9s ease forwards;
+}
+
+@keyframes piano-white-key-fade {
+  from {
+    background: #fda4af;
+    border-color: #e11d48;
+    box-shadow: inset 0 0 0 2px #e11d48;
+  }
+  to {
+    background: #e8e8e8;
+    border-color: #aaa;
+    box-shadow: inset 0 0 0 0 #e11d48;
+  }
 }
 
 .piano-white-key.selected.playing {
@@ -284,7 +310,7 @@
   border-radius: 0 0 3px 3px;
   cursor: pointer;
   pointer-events: auto;
-  transition: background 0.08s;
+  transition: background 0.08s, border-color 0.08s, box-shadow 0.08s;
   z-index: 1;
   transform: translateX(-50%);
 }
@@ -302,10 +328,28 @@
   border-color: #7aa8f0;
 }
 
-.piano-black-key.playing {
-  background: #f38ba8;
-  border-color: #ffb4c6;
-  box-shadow: 0 0 12px rgba(243, 139, 168, 0.75);
+.piano-black-key.playing,
+.piano-black-key.playing:hover {
+  background: #fb7185;
+  border-color: #fff1f2;
+  box-shadow: 0 0 0 2px #fb7185;
+}
+
+.piano-black-key.fading {
+  animation: piano-black-key-fade 0.9s ease forwards;
+}
+
+@keyframes piano-black-key-fade {
+  from {
+    background: #fb7185;
+    border-color: #fff1f2;
+    box-shadow: 0 0 0 2px #fb7185;
+  }
+  to {
+    background: #2a2a2a;
+    border-color: #111;
+    box-shadow: 0 0 0 0 #fb7185;
+  }
 }
 
 .piano-black-key.selected.playing {

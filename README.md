@@ -31,16 +31,17 @@ A local-first piano notation editor built with React, TypeScript, VexFlow, and T
 - Pedal markers, repeat markers, fermatas, and measure management
 - A playable keyboard synth with 12 pitched/percussion presets plus volume, tone, echo, and note-length controls
 - Playback with pause, resume, seamless whole-song looping, repeats, sustained pedal, fermata timing, dynamics, articulations, and a moving score cursor
-- Simultaneous score-note highlighting across staves plus live playback lighting on the piano keys
+- Focus mode: fullscreen layout, hidden side and top panels, and a keyboard trimmed to the song's range
+- Simultaneous score-note highlighting across staves, with every piano key used in the current bar held while playing or paused and then faded out
 - Two optional pitch-letter views: letters centered inside noteheads, or high-contrast note/chord labels below; either mode also labels every key on the piano
 - Note, chord, rest, and whole-bar copy/paste with undo/redo and keyboard shortcuts
 - Multiple locally saved songs with versioned, validated JSON import/export and recovery-safe saves
 - Track-aware MIDI import with chord, hand/staff, overlapping-voice, percussion, General MIDI instrument, tempo, meter, and key mapping
 - Multitrack score navigation with per-track notation, sounds, keyboard lighting, mute/solo, and full-arrangement playback
 - Responsive touch-friendly mobile editing, keyboard-accessible score actions, and non-blocking song deletion with undo
-- Eight bundled, editable sample projects for learning and exploring the editor
+- Nine bundled, editable sample projects for learning and exploring the editor
 
-Songs, tracks, and each track's selected sound controls are stored in browser `localStorage`. The starter library opens Alouette on a visitor's first run and also includes the multitrack Lower Norfair theme, Moonlight Sonata, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. Returning visitors keep their previously selected project. There is no account, server, or cloud sync yet. Grand-piano samples are fetched from the Tone.js Salamander sample host; if they are unavailable, playback falls back to Electric Keys. Synthesized instruments and drums do not require sample downloads.
+Songs, tracks, and each track's selected sound controls are stored in browser `localStorage`. The starter library opens Alouette on a visitor's first run and also includes Tu Falta de Querer, the multitrack Lower Norfair theme, Moonlight Sonata, beginner and full-piano versions of The Marines’ Hymn, Orbiting Ruins, Pixel Parade, and the shared-bass-staff Teacher Duet. Returning visitors keep their previously selected project. There is no account, server, or cloud sync yet. Grand-piano samples are fetched from the Tone.js Salamander sample host; if they are unavailable, playback falls back to Electric Keys. Synthesized instruments and drums do not require sample downloads.
 
 MIDI files are converted into ordinary editable project tracks and are never played directly after import. Every non-empty MIDI track remains independently navigable, retains its channel/program metadata, receives a matching starter sound, and participates in ensemble playback. Percussion becomes an editable percussion-clef score with General MIDI drum labels and synthesized drum sounds. Notes are quantized to the nearest sixteenth; simultaneous notes of equal length become chords, pitched notes below middle C are assigned to bass, and overlaps become independent voices. Secondary-voice timing gaps remain as invisible spacing rests. The import summary calls out tempo, key, meter, or quantization compromises; JSON remains the lossless project format.
 

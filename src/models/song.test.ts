@@ -6,6 +6,7 @@ import {
   getMeasureCapacity,
   getNoteMidiPitches,
   getTieIndexes,
+  measurePianoKeys,
   notationPitchToPianoKey,
   notesHaveSamePitches,
   type NoteEntry,
@@ -19,6 +20,24 @@ function note(id: string, key: string, accidental?: '#' | 'b' | 'n'): NoteEntry 
     accidentals: accidental ? [accidental] : undefined,
   };
 }
+
+describe('measure piano keys', () => {
+  it('lists every sounding key in the bar using keyboard spelling', () => {
+    const measure = createDefaultMeasure();
+    measure.bass = [{
+      id: 'lh',
+      keys: ['f/2', 'bb/2', 'd/3'],
+      duration: 'w',
+    }];
+    measure.treble = [
+      note('rh-1', 'd/4'),
+      note('rh-2', 'b/3', 'n'),
+    ];
+    expect(measurePianoKeys(measure, 'Bb').sort()).toEqual([
+      'a#/2', 'b/3', 'd/3', 'd/4', 'f/2',
+    ]);
+  });
+});
 
 describe('score timing', () => {
   it('counts dotted durations against the selected meter', () => {

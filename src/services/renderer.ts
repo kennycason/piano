@@ -176,6 +176,7 @@ export function renderSong(
     hollow: boolean;
     placement: Exclude<NoteNameMode, 'off'>;
   }> = [];
+  const fingerLabels: Array<{ x: number; y: number; text: string }> = [];
 
   const visibleClefs: StaffClef[] = song.staffLayout === 'bass-only'
     ? ['bass']
@@ -303,6 +304,14 @@ export function renderSong(
       });
     }
     context.restore();
+
+    if (measure.chordSymbol) {
+      context.save();
+      context.setFillStyle('#1e3a8a');
+      context.setFont('Arial', 13, 'bold');
+      context.fillText(measure.chordSymbol, x + (col === 0 ? 78 : 18), staveYs[firstClef] - 6);
+      context.restore();
+    }
 
     const trebleStave = staves.treble;
     const bassStave = staves.bass;
@@ -489,6 +498,33 @@ export function renderSong(
                 text,
                 hollow: false,
                 placement: 'below',
+              });
+            }
+          }
+          if (!note.isRest && note.fingers?.length) {
+            const placed = note.fingers.flatMap((finger, keyIdx) => {
+              const head = vexNote.noteHeads[keyIdx];
+              if (finger == null || !head) return [];
+              return [{
+                finger,
+                x: head.getAbsoluteX() + head.getWidth() / 2,
+                y: head.getY(),
+              }];
+            });
+            if (placed.length > 1) {
+              // Keep the grouped fingering above the chord. Below a low bass
+              // chord it lands on the next system's chord name.
+              fingerLabels.push({
+                x: placed.reduce((sum, item) => sum + item.x, 0) / placed.length,
+                y: Math.min(...placed.map((item) => item.y)) - 36,
+                text: placed.map((item) => String(item.finger)).join(' '),
+              });
+            } else if (placed.length === 1) {
+              const below = clef === 'bass';
+              fingerLabels.push({
+                x: placed[0].x,
+                y: placed[0].y + (below ? 16 : -14),
+                text: String(placed[0].finger),
               });
             }
           }
@@ -724,6 +760,30 @@ export function renderSong(
       labelGroup.appendChild(label);
     });
     svg.appendChild(labelGroup);
+  }
+  if (svg && fingerLabels.length > 0) {
+    const fingerGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    fingerGroup.setAttribute('class', 'finger-labels');
+    fingerGroup.setAttribute('aria-hidden', 'true');
+    fingerLabels.forEach(({ x, y, text }) => {
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', 'finger-label');
+      label.setAttribute('x', String(x));
+      label.setAttribute('y', String(y));
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('dominant-baseline', 'central');
+      label.setAttribute('fill', '#1d4ed8');
+      label.setAttribute('font-family', 'Arial, sans-serif');
+      label.setAttribute('font-size', '11');
+      label.setAttribute('font-weight', '700');
+      label.setAttribute('paint-order', 'stroke');
+      label.setAttribute('stroke', '#fffef9');
+      label.setAttribute('stroke-width', '3');
+      label.setAttribute('stroke-linejoin', 'round');
+      label.textContent = text;
+      fingerGroup.appendChild(label);
+    });
+    svg.appendChild(fingerGroup);
   }
   svg?.setAttribute('role', 'img');
   svg?.setAttribute('aria-label', `Sheet music for ${title}`);

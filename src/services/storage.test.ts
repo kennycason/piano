@@ -3,6 +3,7 @@ import marinesHymn from '../../songs/marines-hymn.json';
 import lowerNorfair from '../../songs/lower-norfair.json';
 import moonlightSonata from '../../songs/moonlight-sonata.json';
 import alouetteBeginner from '../../songs/alouette-beginner.json';
+import tuFaltaDeQuerer from '../../songs/tu-falta-de-querer.json';
 import { createDefaultSong, CURRENT_SONG_SCHEMA_VERSION } from '../models/song';
 import {
   DEFAULT_STARTER_SONG_ID,
@@ -64,6 +65,30 @@ describe('song validation and migration', () => {
     expect(moonlight.song?.tracks[0].staffClefs?.treble).toBe('treble');
   });
 
+  it('keeps the Tu Falta practice chart in Bb with the tutorial voicings', () => {
+    const result = validateAndMigrateSong(tuFaltaDeQuerer);
+    expect(result.errors).toEqual([]);
+    const measures = result.song?.tracks[0].measures ?? [];
+    expect(measures).toHaveLength(32);
+    expect(result.song?.keySignature).toBe('Bb');
+    expect(result.song?.timeSignature).toEqual([4, 4]);
+    expect(measures[0].chordSymbol).toBe('Bb');
+    expect(measures[0].bass[0].keys).toEqual(['f/2', 'bb/2', 'd/3']);
+    expect(measures[0].bass[0].fingers).toEqual([5, 3, 1]);
+    expect(measures[0].treble.map((note) => note.keys[0])).toEqual(['d/4', 'bb/3', 'f/3', 'd/4']);
+    expect(measures[2].chordSymbol).toBe('G');
+    expect(measures[2].bass[0].keys).toEqual(['g/2', 'b/2', 'd/3']);
+    expect(measures[2].bass[0].accidentals).toEqual([null, 'n', null]);
+    expect(measures[4].chordSymbol).toBe('Eb');
+    expect(measures[5].chordSymbol).toBe('Ebm');
+    expect(measures[5].bass[0].keys).toEqual(['gb/2', 'bb/2', 'eb/3']);
+    expect(measures[6].chordSymbol).toBe('Cm');
+    expect(measures[6].bass[0].fingers).toEqual([5, 2, 1]);
+    expect(measures[18].chordSymbol).toBe('D');
+    expect(measures[18].bass[0].keys).toEqual(['f#/2', 'a/2', 'd/3']);
+    expect(measures[18].bass[0].fingers).toEqual([5, 3, 1]);
+  });
+
   it('uses Alouette as the first-run song', () => {
     expect(DEFAULT_STARTER_SONG_ID).toBe('fixture-alouette-beginner');
   });
@@ -81,7 +106,7 @@ describe('song validation and migration', () => {
     const songs = initializeSongLibrary();
 
     expect(songs.some((song) => song.id === 'lower-norfair-multitrack')).toBe(true);
-    expect(stored.get('piano_sheet_sample_library_version')).toBe('4');
+    expect(stored.get('piano_sheet_sample_library_version')).toBe('5');
   });
 
   it('rejects unsupported keys, overflowing voices, and duplicate note ids', () => {

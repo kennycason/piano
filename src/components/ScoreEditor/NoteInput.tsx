@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   GENERAL_MIDI_DRUM_NAMES,
   midiToPianoKey,
@@ -35,6 +35,8 @@ interface NoteInputProps {
   trackKind: TrackKind;
   keySignature: string;
   recordingEnabled: boolean;
+  /** When set, draw only this MIDI span instead of the full 88 keys. */
+  midiRange?: { start: number; end: number } | null;
 }
 
 interface PianoKey {
@@ -70,9 +72,7 @@ function buildFullKeyboard(): PianoKey[] {
 
 // Standard 88-key piano: A0 through C8.
 const ALL_KEYS = buildFullKeyboard();
-const WHITE_KEYS = ALL_KEYS.filter((k) => !k.isBlack);
-const BLACK_KEYS = ALL_KEYS.filter((k) => k.isBlack);
-const TOTAL_WHITE_KEYS = WHITE_KEYS.length;
+
 const SYNTH_CONTROL_DEFINITIONS: ReadonlyArray<{
   key: keyof SynthControls;
   label: string;
@@ -98,16 +98,18 @@ function sortPianoKeys(keys: Iterable<string>): string[] {
     const pitchClasses: Record<string, number> = {
       c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
     };
+    const accidental = name.slice(1);
     return (Number(octaveText) + 1) * 12
       + pitchClasses[name[0]]
-      + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0);
+      + (accidental.includes('#') ? 1 : accidental.includes('b') ? -1 : 0);
   };
   return Array.from(keys).sort((a, b) => midiFor(a) - midiFor(b));
 }
 
 function formatPianoKeyLabel(key: string): string {
   const [name, octave] = key.split('/');
-  return `${name[0]?.toUpperCase() ?? ''}${name.includes('#') ? '♯' : name.includes('b') ? '♭' : ''}${octave}`;
+  const accidental = name.slice(1);
+  return `${name[0]?.toUpperCase() ?? ''}${accidental.includes('#') ? '♯' : accidental.includes('b') ? '♭' : ''}${octave}`;
 }
 
 export const NoteInput: React.FC<NoteInputProps> = ({
@@ -128,6 +130,7 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   trackKind,
   keySignature,
   recordingEnabled,
+  midiRange,
 }) => {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
     () => getSelectedPianoKeys(selectedNote, keySignature),
@@ -135,7 +138,50 @@ export const NoteInput: React.FC<NoteInputProps> = ({
   const [isChordMode, setIsChordMode] = useState(Boolean(session || (selectedNote && !selectedNote.isRest)));
 
   const playingKeys = new Set(activePlaybackKeys);
+  const playbackKeyList = activePlaybackKeys.join('\n');
+  const fadeTimers = useRef<Map<string, number>>(new Map());
+  const [fadingKeys, setFadingKeys] = useState<string[]>([]);
+  const [previousPlaybackKeyList, setPreviousPlaybackKeyList] = useState(playbackKeyList);
+  if (playbackKeyList !== previousPlaybackKeyList) {
+    const nextKeys = playbackKeyList ? playbackKeyList.split('\n') : [];
+    const next = new Set(nextKeys);
+    const previous = previousPlaybackKeyList ? previousPlaybackKeyList.split('\n') : [];
+    const released = previous.filter((key) => !next.has(key));
+    setPreviousPlaybackKeyList(playbackKeyList);
+    setFadingKeys([...new Set([
+      ...fadingKeys.filter((key) => !next.has(key)),
+      ...released,
+    ])]);
+  }
+  useEffect(() => {
+    const active = new Set(fadingKeys);
+    fadeTimers.current.forEach((timer, key) => {
+      if (active.has(key)) return;
+      window.clearTimeout(timer);
+      fadeTimers.current.delete(key);
+    });
+    fadingKeys.forEach((key) => {
+      if (fadeTimers.current.has(key)) return;
+      const timer = window.setTimeout(() => {
+        if (fadeTimers.current.get(key) !== timer) return;
+        fadeTimers.current.delete(key);
+        setFadingKeys((current) => current.filter((item) => item !== key));
+      }, 900);
+      fadeTimers.current.set(key, timer);
+    });
+  }, [fadingKeys]);
+  useEffect(() => () => {
+    fadeTimers.current.forEach((timer) => window.clearTimeout(timer));
+    fadeTimers.current.clear();
+  }, []);
   const isPercussion = trackKind === 'percussion';
+  const visibleKeys = midiRange
+    ? ALL_KEYS.filter((key) => key.midi >= midiRange.start && key.midi <= midiRange.end)
+    : ALL_KEYS;
+  const whiteKeys = visibleKeys.filter((key) => !key.isBlack);
+  const blackKeys = visibleKeys.filter((key) => key.isBlack);
+  const whiteKeyCount = whiteKeys.length;
+  const firstWhiteBoundary = whiteKeys[0]?.whiteBoundary ?? 0;
   const availableInstruments = INSTRUMENT_OPTIONS.filter((option) => (
     isPercussion ? option.value === 'drum-kit' : option.value !== 'drum-kit'
   ));
@@ -275,14 +321,14 @@ export const NoteInput: React.FC<NoteInputProps> = ({
           )}
         </div>
       </div>
-      <div className={`piano-keyboard ${isPercussion ? 'percussion-keyboard' : ''}`}>
-        <div className="piano-keys-area">
+      <div className={`piano-keyboard ${isPercussion ? 'percussion-keyboard' : ''} ${midiRange ? 'piano-keyboard-compact' : ''}`}>
+        <div className="piano-keys-area" style={{ ['--white-key-count' as string]: whiteKeyCount }}>
           <div className="piano-white-keys">
-            {WHITE_KEYS.map((key) => (
+            {whiteKeys.map((key) => (
               <button
                 type="button"
                 key={key.note}
-                className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
+                className={`piano-white-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${!playingKeys.has(key.note) && fadingKeys.includes(key.note) ? 'fading' : ''} ${key.note.startsWith('c/') ? 'c-marker' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
                 aria-pressed={selectedKeys.has(key.note)}
                 disabled={isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi]}
                 aria-label={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
@@ -309,13 +355,13 @@ export const NoteInput: React.FC<NoteInputProps> = ({
             ))}
           </div>
           <div className="piano-black-keys">
-            {BLACK_KEYS.map((key) => {
+            {blackKeys.map((key) => {
               return (
                   <button
                     type="button"
                     key={key.note}
-                  className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
-                  style={{ left: `${(key.whiteBoundary / TOTAL_WHITE_KEYS) * 100}%` }}
+                  className={`piano-black-key ${selectedKeys.has(key.note) ? 'selected' : ''} ${playingKeys.has(key.note) ? 'playing' : ''} ${!playingKeys.has(key.note) && fadingKeys.includes(key.note) ? 'fading' : ''} ${isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi] ? 'drum-unused' : ''}`}
+                  style={{ left: `${((key.whiteBoundary - firstWhiteBoundary) / whiteKeyCount) * 100}%` }}
                   aria-pressed={selectedKeys.has(key.note)}
                   disabled={isPercussion && !GENERAL_MIDI_DRUM_NAMES[key.midi]}
                   aria-label={isPercussion ? GENERAL_MIDI_DRUM_NAMES[key.midi] ?? key.label : key.label}
